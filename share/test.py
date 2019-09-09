@@ -1,6 +1,8 @@
 import tushare as ts
 import numpy as np
 import tensorflow as tf
+
+
 ts.set_token('9ba459eb7da2bca7e1827a240a5654bacdf481a1ea997210e049ea91')
 pro = ts.pro_api()
 
@@ -39,12 +41,18 @@ def test1():
     #     print(line)
 
 def test2():
-    data=pro.stock_company()
+    data=pro.stock_company(exchange='SZSE',fields='ts_code,exchange,chairman,manager,secretary,reg_capital,setup_date,province,city,office,employees,main_business,business_scope')
     print(data)
+    data.to_excel(r"D:\temp\ts1.xlsx")
 
+
+def test3():
+    pro = ts.pro_api()
+    data = pro.daily(ts_code='000001.SZ')
+    data.to_excel(r"D:\temp\ts3.xlsx")
 
 if __name__ == '__main__':
-    test2()
+    test3()
 
 
 
