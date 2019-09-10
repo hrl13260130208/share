@@ -16,14 +16,21 @@ MU_NAME="mu"
 SIGMA_NAME="sigma"
 MAX_NAME="max"
 MIN_NAME="min"
+
 Z_Score_Normalization="Z"
 Max_Min_Normalization="M"
+
 OPEN_LINE_NAME="open"
 HIGH_LINE_NAME="high"
 LOW_LINE_NAME="low"
 CLOSE_LINE_NAME="close"
 VOL_LINE_NAME="vol"
 AMONT_LINE_NAME="amont"
+
+#存储每日数据的数据项目的项目名称
+SOURCE_NAME="source_data"
+MMSTD_NAME="mmstd_data"
+
 
 
 
@@ -175,9 +182,9 @@ class Data_Format():
     def save_day_data(self,ts_code,day,data):
         mmstd_data=self.get_mmstad_data(ts_code,data)
         map_name=self.create_ts_map_name(ts_code)
-        print(day)
-        redis_.hset(map_name,day,json.dumps({"source_data":data.tolist(),"mmstd_data":mmstd_data}))
-
+        redis_.hset(map_name,day,json.dumps({SOURCE_NAME:data.tolist(),MMSTD_NAME:mmstd_data}))
+    def get_day_data(self,ts_code,day):
+        return redis_.hget(self.create_ts_map_name(ts_code),day)
 
     def create_ts_map_name(self,ts_code):
         return ts_code+"_days"
@@ -191,7 +198,7 @@ class Data_Format():
         data6 = normalization_line_data(ts_code, AMONT_LINE_NAME, data[ 10])
         return [ data1, data2, data3, data4, data5, data6]
 
-    def get_train_and_result_data(self,date):
+    def get_train_and_result_data(self,ts_code,date):
         '''
         获取训练数据与对应结果
             训练数据：七天内的数据
@@ -200,15 +207,40 @@ class Data_Format():
         :return:
         '''
         train_date,result_date=self.get_used_date(date)
+        train_data=[]
+        close=None
+        for i in range(7):
+            # print(train_date[6-i])
+            data=self.get_day_data(ts_code,train_date[6-i])
+            # print(data)
+            data=json.loads(data)
+            train_data.append(data[MMSTD_NAME])
+            if i==6:
+                close=data[SOURCE_NAME][5]
+        next_data=self.get_day_data(ts_code,result_date)
+        next_data=json.loads(next_data)
+        if next_data[SOURCE_NAME][5]>close:
+            return train_data,1
+        else:
+            return train_data,0
 
-    def get_used_date(self,date):
+
+
+    def get_used_date(self,date,auto_find=False):
         data=self.pro.trade_cal(start_date=date, end_date=date)
         if data.values[0,2]==1:
             train_list=self.get_train_date(date)
             result_date=self.get_result_date(date)
+            #to do：判断result_date是否可用
             return train_list,result_date
         else:
-            raise ValueError("日期错误！")
+            if auto_find:
+                d = datetime.datetime.strptime(date, "%Y%m%d")
+                d1 = d - datetime.timedelta(days=1)
+                last_date = d1.date().strftime("%Y%m%d")
+                return self.get_used_date(last_date,auto_find=True)
+            else:
+                raise ValueError("输入日期不是交易日！")
 
     def get_train_date(self,date,train_list=[]):
         if train_list.__len__()==7:
@@ -234,6 +266,33 @@ class Data_Format():
             return self.get_result_date(next_date)
 
 
+
+    def get_current_data(self,ts_code):
+        '''
+        获取当前最新的数据用以预测
+        :return:
+        '''
+        d=datetime.datetime.now()
+        date=d.date().strftime("%Y%m%d")
+        train_date,result_date=self.get_used_date(date,auto_find=True)
+        train_data = []
+
+        for i in range(7):
+            # print(train_date[6-i])
+            data = self.get_day_data(ts_code, train_date[6 - i])
+            # print(data)
+            data = json.loads(data)
+            train_data.append(data[MMSTD_NAME])
+
+        return train_data
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
 
     # d=datetime.datetime.strptime("20190901","%Y%m%d")
@@ -242,7 +301,8 @@ if __name__ == '__main__':
 
     # Data_Format().init_data("000005.SZ")
     # list=Data_Format().get_train_date("20190910")
-    list=Data_Format().get_used_date("20190912")
+    # list=Data_Format().get_train_and_result_data("000005.SZ","20190906")
+    list=Data_Format().get_current_data("000005.SZ")
     print(list)
     # d=np.array([1,2,3]).tolist()
     # print(type(d))

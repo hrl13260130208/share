@@ -5,18 +5,6 @@ import numpy as np
 
 model_path=r"C:\data\rnn\share_lstm_test\model"
 
-class share_model(tf.keras.Model):
-    def __init__(self, units):
-        super(share_model, self).__init__()
-        self.units = units
-
-        self.lstm = tf.keras.layers.LSTM(self.units,input_shape=(7,6), return_sequences=True)
-        self.fc = tf.keras.layers.Dense(6)
-
-    def call(self, x):
-        output = self.lstm(x)
-        prediction = self.fc(output)
-        return prediction
 
 def get_data():
     data = np.load(r"C:\File\numpy_data\1.npy")
