@@ -31,6 +31,8 @@ AMONT_LINE_NAME="amont"
 SOURCE_NAME="source_data"
 MMSTD_NAME="mmstd_data"
 
+DATE_FORMAT="%Y%m%d"
+
 
 
 
@@ -189,9 +191,27 @@ class Data_Format():
     def create_ts_map_name(self,ts_code):
         return ts_code+"_days"
 
+    def set_current_day(self,ts_code,day):
+        item_name=self.create_current_day_name(ts_code)
+
+        current_date=datetime.datetime.strptime(day,DATE_FORMAT )
+        old_date=redis_.get(item_name)
+        if old_date==None:
+            redis_.set(item_name,current_date.date().strftime(DATE_FORMAT))
+        else:
+            old_date=datetime.datetime.strptime(old_date,DATE_FORMAT )
+            if old_date<current_date:
+                redis_.set(item_name,current_date.date().strftime(DATE_FORMAT))
+
+    def get_current_day(self,ts_code):
+        item_name = self.create_current_day_name(ts_code)
+        return redis_.get(item_name)
+
+    def create_current_day_name(self,ts_code):
+        return ts_code+"_current_day"
     def get_mmstad_data(self,ts_code,data):
-        data1 = normalization_line_data(ts_code, OPEN_LINE_NAME, data[ 2])
-        data2 = normalization_line_data(ts_code, HIGH_LINE_NAME, data[ 3])
+        data1 = normalization_line_data(ts_code, OPEN_LINE_NAME, data[2])
+        data2 = normalization_line_data(ts_code, HIGH_LINE_NAME, data[3])
         data3 = normalization_line_data(ts_code, LOW_LINE_NAME, data[ 4])
         data4 = normalization_line_data(ts_code, CLOSE_LINE_NAME, data[5])
         data5 = normalization_line_data(ts_code, VOL_LINE_NAME, data[9])
@@ -235,9 +255,9 @@ class Data_Format():
             return train_list,result_date
         else:
             if auto_find:
-                d = datetime.datetime.strptime(date, "%Y%m%d")
+                d = datetime.datetime.strptime(date, DATE_FORMAT)
                 d1 = d - datetime.timedelta(days=1)
-                last_date = d1.date().strftime("%Y%m%d")
+                last_date = d1.date().strftime(DATE_FORMAT)
                 return self.get_used_date(last_date,auto_find=True)
             else:
                 raise ValueError("输入日期不是交易日！")
