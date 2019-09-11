@@ -3,6 +3,8 @@ import numpy as np
 import redis
 import json
 import datetime
+import logging
+import sys
 
 
 
@@ -33,7 +35,9 @@ MMSTD_NAME="mmstd_data"
 
 DATE_FORMAT="%Y%m%d"
 
-
+logging.basicConfig(level = logging.ERROR,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s',stream=sys.stdout)
+logging.getLogger("logger").setLevel(logging.INFO)
+logger=logging.getLogger("logger")
 
 
 def Z_ScoreNormalization(x ,mu ,sigma):
@@ -152,16 +156,39 @@ def parser_data(ts_code,line_name,data,normalization_type=Max_Min_Normalization)
         pass
 
 class Data_Format():
+    '''
+    数据存储结构：
+        每日数据：
+            存储在redis的hash中
+            hash的名称由ts_code确定（使用create_ts_map_name方法）
+            hash中的key为日期（格式为字符串如：20190911） value为json字符串（需要loads和jumps，目前json中存储了
+                一份原始数据（key为SOURCE_NAME）和一份标准化后的数据（key为MMSTD_NAME））
+        标准化数据：
+            目前存储了最大最小标准化和Z_Score所需要的数据，数据存储在redis的string中
+            string的key通过create_name方法获得
+
+
+
+
+    '''
     def __init__(self):
         ts.set_token('9ba459eb7da2bca7e1827a240a5654bacdf481a1ea997210e049ea91')
         self.pro = ts.pro_api()
 
-    def update_data(self):
-        pass
-
     def get_share_list(self):
         data=self.pro.stock_basic()
         return data.values[:,0],data.values
+
+    def save_daily_datas(self,ts_code,start_date=None):
+        '''
+        存储每日数据
+        :param ts_code:
+        :return:
+        '''
+        data = self.pro.daily(ts_code=ts_code,start_date=start_date)
+        np_data=data.values
+        for line in np_data:
+            self.save_day_data(ts_code,line[1],line)
 
     def init_data(self,ts_code):
         '''
@@ -170,7 +197,7 @@ class Data_Format():
         :return:
         '''
         data = self.pro.daily(ts_code=ts_code)
-        np_data=data.values
+        np_data = data.values
         save_line(ts_code, OPEN_LINE_NAME, np_data[:, 2])
         save_line(ts_code, HIGH_LINE_NAME, np_data[:, 3])
         save_line(ts_code, LOW_LINE_NAME, np_data[:, 4])
@@ -178,13 +205,14 @@ class Data_Format():
         save_line(ts_code, VOL_LINE_NAME, np_data[:, 9])
         save_line(ts_code, AMONT_LINE_NAME, np_data[:, 10])
         for line in np_data:
-            self.save_day_data(ts_code,line[1],line)
-
+            self.save_day_data(ts_code, line[1], line)
 
     def save_day_data(self,ts_code,day,data):
         mmstd_data=self.get_mmstad_data(ts_code,data)
         map_name=self.create_ts_map_name(ts_code)
         redis_.hset(map_name,day,json.dumps({SOURCE_NAME:data.tolist(),MMSTD_NAME:mmstd_data}))
+        self.set_current_day(ts_code,day)
+
     def get_day_data(self,ts_code,day):
         return redis_.hget(self.create_ts_map_name(ts_code),day)
 
@@ -247,6 +275,12 @@ class Data_Format():
 
 
     def get_used_date(self,date,auto_find=False):
+        '''
+        获取训练数据及结果对应的日期
+        :param date:
+        :param auto_find:
+        :return:
+        '''
         data=self.pro.trade_cal(start_date=date, end_date=date)
         if data.values[0,2]==1:
             train_list=self.get_train_date(date)
@@ -262,7 +296,15 @@ class Data_Format():
             else:
                 raise ValueError("输入日期不是交易日！")
 
-    def get_train_date(self,date,train_list=[]):
+    def get_train_date(self,date,train_list=None):
+        '''
+        获取训练数据对应的日期
+        :param date:
+        :param train_list:
+        :return:
+        '''
+        if train_list==None:
+            train_list=[]
         if train_list.__len__()==7:
             return train_list
         d = datetime.datetime.strptime(date, "%Y%m%d")
@@ -276,6 +318,11 @@ class Data_Format():
             return self.get_train_date(last_date, train_list)
 
     def get_result_date(self,date):
+        '''
+        获取预测结果对应的日期
+        :param date:
+        :return:
+        '''
         d = datetime.datetime.strptime(date, "%Y%m%d")
         d1 = d + datetime.timedelta(days=1)
         next_date = d1.date().strftime("%Y%m%d")
@@ -287,25 +334,38 @@ class Data_Format():
 
 
 
-    def get_current_data(self,ts_code):
+    def get_current_data(self,ts_code,date=None):
         '''
         获取当前最新的数据用以预测
         :return:
         '''
-        d=datetime.datetime.now()
-        date=d.date().strftime("%Y%m%d")
+        if date==None:
+            d=datetime.datetime.now()
+            date=d.date().strftime("%Y%m%d")
+
         train_date,result_date=self.get_used_date(date,auto_find=True)
         train_data = []
 
+        logger.info("当前数据日期列表为："+str(train_date))
         for i in range(7):
             # print(train_date[6-i])
             data = self.get_day_data(ts_code, train_date[6 - i])
             # print(data)
+            if data==None:
+                logger.info("当前数据中有空值，更新日期！")
+                return self.get_current_data(ts_code,date=train_date[1])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
-
         return train_data
 
+    def update_data(self,ts_code):
+        '''
+        更新指定股票的数据
+        :param ts_code:
+        :return:
+        '''
+        old_date=self.get_current_day(ts_code)
+        self.save_daily_datas(ts_code,start_date=old_date)
 
 
 
@@ -321,9 +381,12 @@ if __name__ == '__main__':
 
     # Data_Format().init_data("000005.SZ")
     # list=Data_Format().get_train_date("20190910")
+    # list2=Data_Format().get_train_date("20190909")
     # list=Data_Format().get_train_and_result_data("000005.SZ","20190906")
     list=Data_Format().get_current_data("000005.SZ")
+    # list=Data_Format().update_data("000005.SZ")
     print(list)
+
     # d=np.array([1,2,3]).tolist()
     # print(type(d))
     # np.save(r"C:\File\numpy_data\1.npy", get_data())
