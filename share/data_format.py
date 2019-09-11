@@ -246,6 +246,23 @@ class Data_Format():
         data6 = normalization_line_data(ts_code, AMONT_LINE_NAME, data[ 10])
         return [ data1, data2, data3, data4, data5, data6]
 
+    def get_all_day_datas(self,ts_code):
+        data = self.pro.daily(ts_code=ts_code)
+        np_data = data.values
+        train=[]
+        result=[]
+        for i in np_data[1:-7]:
+            print(i[1])
+            try:
+                t,r=self.get_train_and_result_data(ts_code,i[1])
+                print(t,r)
+                train.append(t)
+                result.append(r)
+            except:
+                pass
+        return np.array(train),np.array(result)
+
+
     def get_train_and_result_data(self,ts_code,date):
         '''
         获取训练数据与对应结果
@@ -258,9 +275,7 @@ class Data_Format():
         train_data=[]
         close=None
         for i in range(7):
-            # print(train_date[6-i])
             data=self.get_day_data(ts_code,train_date[6-i])
-            # print(data)
             data=json.loads(data)
             train_data.append(data[MMSTD_NAME])
             if i==6:
@@ -271,8 +286,6 @@ class Data_Format():
             return train_data,1
         else:
             return train_data,0
-
-
 
     def get_used_date(self,date,auto_find=False):
         '''
@@ -383,9 +396,13 @@ if __name__ == '__main__':
     # list=Data_Format().get_train_date("20190910")
     # list2=Data_Format().get_train_date("20190909")
     # list=Data_Format().get_train_and_result_data("000005.SZ","20190906")
-    list=Data_Format().get_current_data("000005.SZ")
-    # list=Data_Format().update_data("000005.SZ")
-    print(list)
+    # list=Data_Format().get_current_data("000005.SZ")
+    l1,l2=Data_Format().get_all_day_datas("000005.SZ")
+    np.save(r"C:\File\numpy_data\train_0911.npy",l1)
+    np.save(r"C:\File\numpy_data\verify_0911.npy",l2)
+    print(l1.shape)
+    print(l2.shape)
+    # print(list)
 
     # d=np.array([1,2,3]).tolist()
     # print(type(d))

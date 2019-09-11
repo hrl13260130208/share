@@ -2,20 +2,15 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from share import utils
 import numpy as np
+from share import data_format
 
 model_path=r"C:\data\rnn\share_lstm_test\model"
 
 
 def get_data():
-    data = np.load(r"C:\File\numpy_data\1.npy")
-    new_data=np.array([data[len(data)-index-1][1:] for index in range(data.__len__()) ])
-    # plt.figure(figsize=(18, 9))
-    # plt.plot(data[:,0], data[:,1])
-    # # plt.xticks(range(0, df.shape[0], 500), df['Date'].loc[::500], rotation=45)
-    # # plt.xlabel('Date', fontsize=18)
-    # # plt.ylabel('Mid Price', fontsize=18)
-    # plt.show()
-    return get_train_data(0,new_data,7,1,[],[])
+    df=data_format.Data_Format()
+    # df.get_train_and_result_data()
+    # return get_train_data(0,new_data,7,1,[],[])
 
 
 
@@ -94,10 +89,11 @@ def predict():
 
 
 if __name__ == '__main__':
+    pass
     # get_data()
     # data=np.load(r"C:\File\numpy_data\1.npy")
     # print(np.array([data[len(data)-index-1] for index in range(data.__len__()) ]).shape)
     # main()
-    predict()
+    # predict()
     # get_data()
 
