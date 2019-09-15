@@ -5,10 +5,11 @@ import json
 import datetime
 import logging
 import sys
+from share import lstm_share
 
 
 
-REDIS_IP="10.3.1.99"
+REDIS_IP="localhost"
 REDIS_PORT="6379"
 REDIS_DB="12"
 QUEUE_NAME="file_queue"
@@ -32,6 +33,9 @@ AMONT_LINE_NAME="amont"
 #存储每日数据的数据项目的项目名称
 SOURCE_NAME="source_data"
 MMSTD_NAME="mmstd_data"
+#存储每日的预测数据与实际数据用于统计
+PREDICT_NAME="predict_data"
+REAL_NAME="real_data"
 
 DATE_FORMAT="%Y%m%d"
 
@@ -67,27 +71,6 @@ def test_m():
     min = np.min(np_data[:, 5])
     print(max, min)
     print(MaxMinNormalization(np_data[0, 5], max, min))
-
-def save_data(np_data):
-    '''
-    存储数据标准化所需的数据（最大值、最小值、平均值、标准差）
-    :return:
-    '''
-    ts_code=np_data[0,0]
-    line1="open"
-    save_line(ts_code,line1,np_data[:,2])
-    line2="high"
-    save_line(ts_code,line2,np_data[:,3])
-    line3="low"
-    save_line(ts_code,line3,np_data[:,4])
-    line4="close"
-    save_line(ts_code,line4,np_data[:,5])
-    line5="pre_close"
-    save_line(ts_code, line5, np_data[:, 6])
-    line6="vol"
-    save_line(ts_code,line6,np_data[:,9])
-    line7="amont"
-    save_line(ts_code,line7,np_data[:,10])
 
 
 
@@ -155,6 +138,17 @@ def parser_data(ts_code,line_name,data,normalization_type=Max_Min_Normalization)
     else:
         pass
 
+
+class Redis_Name_Manager():
+    def create_ts_map_name(self, ts_code):
+        return ts_code + "_days"
+
+    def create_current_day_name(self, ts_code):
+        return ts_code + "_current_day"
+
+
+
+
 class Data_Format():
     '''
     数据存储结构：
@@ -167,13 +161,11 @@ class Data_Format():
             目前存储了最大最小标准化和Z_Score所需要的数据，数据存储在redis的string中
             string的key通过create_name方法获得
 
-
-
-
     '''
     def __init__(self):
         ts.set_token('9ba459eb7da2bca7e1827a240a5654bacdf481a1ea997210e049ea91')
         self.pro = ts.pro_api()
+        self.redis_names=Redis_Name_Manager()
 
     def get_share_list(self):
         data=self.pro.stock_basic()
@@ -209,18 +201,17 @@ class Data_Format():
 
     def save_day_data(self,ts_code,day,data):
         mmstd_data=self.get_mmstad_data(ts_code,data)
-        map_name=self.create_ts_map_name(ts_code)
+        map_name=self.redis_names.create_ts_map_name(ts_code)
         redis_.hset(map_name,day,json.dumps({SOURCE_NAME:data.tolist(),MMSTD_NAME:mmstd_data}))
         self.set_current_day(ts_code,day)
 
     def get_day_data(self,ts_code,day):
-        return redis_.hget(self.create_ts_map_name(ts_code),day)
+        return redis_.hget(self.redis_names.create_ts_map_name(ts_code),day)
 
-    def create_ts_map_name(self,ts_code):
-        return ts_code+"_days"
+
 
     def set_current_day(self,ts_code,day):
-        item_name=self.create_current_day_name(ts_code)
+        item_name=self.redis_names.create_current_day_name(ts_code)
 
         current_date=datetime.datetime.strptime(day,DATE_FORMAT )
         old_date=redis_.get(item_name)
@@ -232,11 +223,10 @@ class Data_Format():
                 redis_.set(item_name,current_date.date().strftime(DATE_FORMAT))
 
     def get_current_day(self,ts_code):
-        item_name = self.create_current_day_name(ts_code)
+        item_name = self.redis_names.create_current_day_name(ts_code)
         return redis_.get(item_name)
 
-    def create_current_day_name(self,ts_code):
-        return ts_code+"_current_day"
+
     def get_mmstad_data(self,ts_code,data):
         data1 = normalization_line_data(ts_code, OPEN_LINE_NAME, data[2])
         data2 = normalization_line_data(ts_code, HIGH_LINE_NAME, data[3])
@@ -283,9 +273,9 @@ class Data_Format():
         next_data=self.get_day_data(ts_code,result_date)
         next_data=json.loads(next_data)
         if next_data[SOURCE_NAME][5]>close:
-            return train_data,1
+            return train_data,[0,1]
         else:
-            return train_data,0
+            return train_data,[1,0]
 
     def get_used_date(self,date,auto_find=False):
         '''
@@ -369,7 +359,7 @@ class Data_Format():
                 return self.get_current_data(ts_code,date=train_date[1])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
-        return train_data
+        return train_data,train_date[0]
 
     def update_data(self,ts_code):
         '''
@@ -379,6 +369,34 @@ class Data_Format():
         '''
         old_date=self.get_current_day(ts_code)
         self.save_daily_datas(ts_code,start_date=old_date)
+
+
+class Predict():
+    def __init__(self):
+        self.names=Redis_Name_Manager()
+        self.data_format=Data_Format()
+    def save_predict(self,ts_code,date,predict_data,real_data):
+        name=self.names.create_ts_map_name(ts_code)
+        save_data=redis_.hget(name,date)
+        save_data=json.loads(save_data)
+        save_data[PREDICT_NAME]=predict_data
+        save_data[REAL_NAME]=real_data
+        redis_.hset(name,date,json.dumps(save_data))
+
+
+    def predict(self,ts_code,date=None):
+        if date==None:
+            train_data,date=self.data_format.get_current_data(ts_code)
+            print(train_data,date)
+            train_data=np.array(train_data).reshape((1,7,6))
+            real_data=None
+        else:
+            train_data,real_data=self.data_format.get_train_and_result_data(ts_code,date)
+
+        predict_data = lstm_share.predict(train_data)
+        self.save_predict(ts_code,date,predict_data.tolist(),real_data)
+        return predict_data,real_data
+
 
 
 
@@ -397,12 +415,15 @@ if __name__ == '__main__':
     # list2=Data_Format().get_train_date("20190909")
     # list=Data_Format().get_train_and_result_data("000005.SZ","20190906")
     # list=Data_Format().get_current_data("000005.SZ")
-    l1,l2=Data_Format().get_all_day_datas("000005.SZ")
-    np.save(r"C:\File\numpy_data\train_0911.npy",l1)
-    np.save(r"C:\File\numpy_data\verify_0911.npy",l2)
-    print(l1.shape)
-    print(l2.shape)
+    # Data_Format().init_data("000005.SZ")
+    # l1,l2=Data_Format().get_all_day_datas("000005.SZ")
+    #
+    # np.save(r"D:\data\share\train_0913.npy",l1)
+    # np.save(r"D:\data\share\verify_0913.npy",l2)
+    # print(l1.shape)
+    # print(l2.shape)
     # print(list)
+    # print(Predict().predict("000005.SZ"))
 
     # d=np.array([1,2,3]).tolist()
     # print(type(d))
@@ -411,16 +432,17 @@ if __name__ == '__main__':
     # d=redis_.hget("data","day1")
     # print(d,type(d))
     # print(json.loads(d)[0],type(json.loads(d)))
-
-    # for key in redis_.keys("*"):
-    #     # redis_.delete(key)
-    #     # print(key ,redis_.type(key))
-    #     if redis_.type(key) == "string":
-    #         print(key, redis_.get(key))
-    #     elif redis_.type(key) == "set":
-    #         print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
-    #     elif redis_.type(key) == "list":
-    #         print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
-    #     elif redis_.type(key) == "hash":
-    #         print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
-
+    #
+    for key in redis_.keys("*"):
+        # redis_.delete(key)
+        # print(key ,redis_.type(key))
+        if redis_.type(key) == "string":
+            print(key, redis_.get(key))
+        elif redis_.type(key) == "set":
+            print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
+        elif redis_.type(key) == "list":
+            print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
+        elif redis_.type(key) == "hash":
+            print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
+            print(redis_.hget(key,"20190912"))
+    #
