@@ -9,7 +9,8 @@ from share import lstm_share
 
 
 
-REDIS_IP="localhost"
+# REDIS_IP="localhost"
+REDIS_IP="106.13.47.26"
 REDIS_PORT="6379"
 REDIS_DB="12"
 QUEUE_NAME="file_queue"
@@ -433,6 +434,7 @@ if __name__ == '__main__':
     # print(d,type(d))
     # print(json.loads(d)[0],type(json.loads(d)))
     #
+    redis_.set("date","2019")
     for key in redis_.keys("*"):
         # redis_.delete(key)
         # print(key ,redis_.type(key))
