@@ -8,27 +8,61 @@ import sys
 from share import lstm_share
 
 
-
 REDIS_IP="localhost"
 REDIS_PORT="6379"
 REDIS_DB="12"
 QUEUE_NAME="file_queue"
 redis_ = redis.Redis(host=REDIS_IP, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
 
-MU_NAME="mu"
-SIGMA_NAME="sigma"
-MAX_NAME="max"
-MIN_NAME="min"
+
+
+
 
 Z_Score_Normalization="Z"
 Max_Min_Normalization="M"
 
+
+
+
+'''
+redis存储内容说明：
+    1、数据标准化相关数据 类型:string 命名格式:ts_code+lineName+nName
+    2、股票每日数据 类型：hash 命名格式：ts_code+固定字符串“days”  
+            hash中key的命名格式：日期 例：20161103
+            hash中value的值以json的形式存储 json中存储 
+                source_data：原始数据 
+                mmstd_data：标准化后的数据
+                predict_data：模型预测的结果（初始化时不会写入）
+                real_data：实际数据涨跌的结果（初始化时不会写入）
+    3、数字id 类型：hash 命名格式：列名+固定字符串“id”  （这是为了将非数字类型的数据转换成数字，然后使用词向量将其加入到模型中）
+            hash中key的命名格式：ts_code  例：000001.SZ
+            hash中value的值：对应id号                             
+    4、股票列表 类型：hash 命名格式：固定名称--share_list
+             hash中key的命名格式：ts_code 例：000002.SZ
+             hash中value的值以json的形式存储 json中存储 
+             source_data：原始数据 
+             ids_data:该数据对应的id （目前存储：ts_code、area、industry）
+
+'''
+
+#lineName
 OPEN_LINE_NAME="open"
 HIGH_LINE_NAME="high"
 LOW_LINE_NAME="low"
 CLOSE_LINE_NAME="close"
 VOL_LINE_NAME="vol"
 AMONT_LINE_NAME="amont"
+
+#columnNmae
+TS_CODE_NAME="ts_code"
+AREA_NAME="area"
+INDUSTRY_NAME="industry"
+
+#nName
+MU_NAME="mu"
+SIGMA_NAME="sigma"
+MAX_NAME="max"
+MIN_NAME="min"
 
 #存储每日数据的数据项目的项目名称
 SOURCE_NAME="source_data"
@@ -37,11 +71,14 @@ MMSTD_NAME="mmstd_data"
 PREDICT_NAME="predict_data"
 REAL_NAME="real_data"
 
+IDS_NAME="ids_data"
+
+
+SHARE_LIST_NAME="share_list"
+
 DATE_FORMAT="%Y%m%d"
 
-logging.basicConfig(level = logging.ERROR,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s',stream=sys.stdout)
-logging.getLogger("logger").setLevel(logging.INFO)
-logger=logging.getLogger("logger")
+
 
 
 def Z_ScoreNormalization(x ,mu ,sigma):
@@ -145,7 +182,8 @@ class Redis_Name_Manager():
 
     def create_current_day_name(self, ts_code):
         return ts_code + "_current_day"
-
+    def create_id_hash_name(self,column_name):
+        return column_name+"_id"
 
 
 
@@ -166,6 +204,10 @@ class Data_Format():
         ts.set_token('9ba459eb7da2bca7e1827a240a5654bacdf481a1ea997210e049ea91')
         self.pro = ts.pro_api()
         self.redis_names=Redis_Name_Manager()
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                            stream=sys.stdout)
+        self.logger=logging.getLogger("data_format")
+        self.logger.setLevel(logging.INFO)
 
     def get_share_list(self):
         data=self.pro.stock_basic()
@@ -188,6 +230,7 @@ class Data_Format():
         :param ts_code:
         :return:
         '''
+        self.logger.info("存储股票每日价格数据，股票代码："+str(ts_code))
         data = self.pro.daily(ts_code=ts_code)
         np_data = data.values
         save_line(ts_code, OPEN_LINE_NAME, np_data[:, 2])
@@ -198,6 +241,44 @@ class Data_Format():
         save_line(ts_code, AMONT_LINE_NAME, np_data[:, 10])
         for line in np_data:
             self.save_day_data(ts_code, line[1], line)
+
+    def init_all(self):
+        self.logger.info("获取股票信息列表...")
+        data = self.pro.stock_basic()
+
+        self.logger.info("设置ids...")
+        self.save_id_data(self.redis_names.create_id_hash_name(TS_CODE_NAME),set(data.values[:,0]))
+        self.save_id_data(self.redis_names.create_id_hash_name(AREA_NAME),set(data.values[:,3]))
+        self.save_id_data(self.redis_names.create_id_hash_name(INDUSTRY_NAME),set(data.values[:,4]))
+
+        for line in data.values:
+            self.save_share_info(line)
+            self.init_data(line[0])
+
+    def save_share_info(self,info):
+        '''
+        存储股票信息
+        :param info:
+        :return:
+        '''
+        ts_code=info[0]
+        self.logger.info("存储股票信息，股票代码："+str(ts_code)+",股票名称："+str(info[2]))
+        ts_code_id=self.get_id(self.redis_names.create_id_hash_name(TS_CODE_NAME),ts_code)
+        area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),info[3])
+        industry_id=self.get_id(self.redis_names.create_id_hash_name(INDUSTRY_NAME),info[4])
+        self.save_share_data(ts_code,json.dumps({SOURCE_NAME:info.tolist(),IDS_NAME:[ts_code_id,area_id,industry_id]}))
+
+    def save_share_data(self,ts_code,data):
+        redis_.hset(SHARE_LIST_NAME,ts_code,data)
+    def get_share_data(self,ts_code):
+        return redis_.hget(SHARE_LIST_NAME,ts_code)
+
+
+    def save_id_data(self,name,set):
+        for id,item in enumerate(set):
+            redis_.hset(name,item,id)
+    def get_id(self,hash_name,item_name):
+        return redis_.hget(hash_name,item_name)
 
     def save_day_data(self,ts_code,day,data):
         mmstd_data=self.get_mmstad_data(ts_code,data)
@@ -349,13 +430,13 @@ class Data_Format():
         train_date,result_date=self.get_used_date(date,auto_find=True)
         train_data = []
 
-        logger.info("当前数据日期列表为："+str(train_date))
+        self.logger.info("当前数据日期列表为："+str(train_date))
         for i in range(7):
             # print(train_date[6-i])
             data = self.get_day_data(ts_code, train_date[6 - i])
             # print(data)
             if data==None:
-                logger.info("当前数据中有空值，更新日期！")
+                self.logger.info("当前数据中有空值，更新日期！")
                 return self.get_current_data(ts_code,date=train_date[1])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
@@ -369,6 +450,9 @@ class Data_Format():
         '''
         old_date=self.get_current_day(ts_code)
         self.save_daily_datas(ts_code,start_date=old_date)
+
+    def timing_update(self):
+        pass
 
 
 class Predict():
@@ -399,6 +483,9 @@ class Predict():
 
 
 
+def init_data():
+    pass
+
 
 
 
@@ -406,6 +493,7 @@ class Predict():
 
 if __name__ == '__main__':
 
+    Data_Format().init_all()
     # d=datetime.datetime.strptime("20190901","%Y%m%d")
     # d1=d - datetime.timedelta(days=1)
     # print(d1.date().strftime("%Y%m%d"))
@@ -433,16 +521,16 @@ if __name__ == '__main__':
     # print(d,type(d))
     # print(json.loads(d)[0],type(json.loads(d)))
     #
-    for key in redis_.keys("*"):
-        # redis_.delete(key)
-        # print(key ,redis_.type(key))
-        if redis_.type(key) == "string":
-            print(key, redis_.get(key))
-        elif redis_.type(key) == "set":
-            print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
-        elif redis_.type(key) == "list":
-            print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
-        elif redis_.type(key) == "hash":
-            print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
-            print(redis_.hget(key,"20190912"))
+    # for key in redis_.keys("*"):
+    #     # redis_.delete(key)
+    #     # print(key ,redis_.type(key))
+    #     if redis_.type(key) == "string":
+    #         print(key, redis_.get(key))
+    #     elif redis_.type(key) == "set":
+    #         print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
+    #     elif redis_.type(key) == "list":
+    #         print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
+    #     elif redis_.type(key) == "hash":
+    #         print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
+    #         print(redis_.hget(key,"20190912"))
     #
