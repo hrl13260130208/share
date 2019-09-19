@@ -9,7 +9,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     stream=sys.stdout)
-from share import lstm_share
+
 
 REDIS_IP="localhost"
 REDIS_PORT="6379"
@@ -528,7 +528,7 @@ def timing():
     scheduler.start()
 def save_train_data():
     t,r,t1,a,i=Data_Format().get_all_day_datas()
-    
+
 
 
 
