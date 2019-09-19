@@ -185,6 +185,7 @@ class Redis_Name_Manager():
 
     def create_current_day_name(self, ts_code):
         return ts_code + "_current_day"
+
     def create_id_hash_name(self,column_name):
         return column_name+"_id"
 
@@ -261,6 +262,7 @@ class Data_Format():
 
     def save_share_data(self,ts_code,data):
         redis_.hset(SHARE_LIST_NAME,ts_code,data)
+
     def get_share_data(self,ts_code):
         return redis_.hget(SHARE_LIST_NAME,ts_code)
 
@@ -268,6 +270,7 @@ class Data_Format():
     def save_id_data(self,name,set):
         for id,item in enumerate(set):
             redis_.hset(name,item,id)
+
     def get_id(self,hash_name,item_name):
         return redis_.hget(hash_name,item_name)
 
@@ -454,8 +457,6 @@ class Data_Format():
         else:
             return self.get_result_date(next_date)
 
-
-
     def get_current_data(self,ts_code,date=None):
         '''
         获取当前最新的数据用以预测
@@ -497,7 +498,7 @@ class Data_Format():
         :return:
         '''
         data = self.pro.daily(ts_code=ts_code, start_date=start_date)
-        print(data)
+        # print(data)
         np_data = data.values
         dates=[]
         for line in np_data:
@@ -514,11 +515,6 @@ class Data_Format():
             self.save_predict(ts_code,i,real_data=r)
 
 
-
-
-
-
-
 def all_update():
     df=Data_Format()
     for key in redis_.hkeys(SHARE_LIST_NAME):
@@ -530,15 +526,17 @@ def timing():
     scheduler = BlockingScheduler()
     scheduler.add_job(func=all_update, trigger="cron", day="*", hour="16")
     scheduler.start()
-
+def save_train_data():
+    t,r,t1,a,i=Data_Format().get_all_day_datas()
+    
 
 
 
 if __name__ == '__main__':
-
+    Data_Format().init_all()
     # print(Data_Format().update_data("000001.SZ"))
-    a=Data_Format().get_all_day_datas()
-    print(a)
+    # a=Data_Format().get_all_day_datas()
+    # print(a)
     # d=datetime.datetime.strptime("20190901","%Y%m%d")
     # d1=d - datetime.timedelta(days=1)
     # print(d1.date().strftime("%Y%m%d"))
