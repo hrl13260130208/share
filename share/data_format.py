@@ -269,6 +269,8 @@ class Data_Format():
 
     def save_id_data(self,name,set):
         for id,item in enumerate(set):
+            if item==None:
+                continue
             redis_.hset(name,item,id)
 
     def get_id(self,hash_name,item_name):
