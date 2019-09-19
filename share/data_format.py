@@ -81,6 +81,7 @@ SHARE_LIST_NAME="share_list"
 
 DATE_FORMAT="%Y%m%d"
 
+NONE_NAME="none_item"
 
 
 
@@ -256,7 +257,10 @@ class Data_Format():
         ts_code=info[0]
         self.logger.info("存储股票信息，股票代码："+str(ts_code)+",股票名称："+str(info[2]))
         ts_code_id=self.get_id(self.redis_names.create_id_hash_name(TS_CODE_NAME),ts_code)
-        area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),info[3])
+        if info[3]==None:
+            area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),NONE_NAME)
+        else:
+            area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),info[3])
         industry_id=self.get_id(self.redis_names.create_id_hash_name(INDUSTRY_NAME),info[4])
         self.save_share_data(ts_code,json.dumps({SOURCE_NAME:info.tolist(),IDS_NAME:[ts_code_id,area_id,industry_id]}))
 
@@ -270,8 +274,9 @@ class Data_Format():
     def save_id_data(self,name,set):
         for id,item in enumerate(set):
             if item==None:
-                continue
-            redis_.hset(name,item,id)
+                redis_.hset(name,NONE_NAME,0)
+            else:
+                redis_.hset(name,item,id+1)
 
     def get_id(self,hash_name,item_name):
         return redis_.hget(hash_name,item_name)
