@@ -67,7 +67,7 @@ def get_model():
     print(out.shape)
     model=tf.keras.Model(inputs=[lstm_input,ts_code_input,area_input,industry_input],outputs=out)
 
-    model.compile(optimizer=tf.train.RMSPropOptimizer(0.01),
+    model.compile(optimizer=tf.train.RMSPropOptimizer(0.001),
               loss=tf.keras.losses.categorical_crossentropy,
               metrics=[tf.keras.metrics.categorical_accuracy]
                   )
@@ -126,4 +126,6 @@ if __name__ == '__main__':
     # print(predict(train_data))
     # get_data()
     # Predict().predict("000005.SZ",date="20190911")
-    get_model()
+    model=get_model()
+    t, r, t1, a, i = data_format.Data_Format().get_all_datas_by_sort()
+    model.fit({"lstm_input":t,"ts_code_input":t1,"area_input":a,"industry_input":i},r,batch_size=2000,epochs=1000)
