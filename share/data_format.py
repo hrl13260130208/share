@@ -3,6 +3,7 @@ import numpy as np
 import redis
 import json
 import datetime
+import time
 import logging
 import sys
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -100,6 +101,8 @@ def test_z():
 
 
 def MaxMinNormalization(x,Max,Min):
+    if Max-Min==0:
+        return 0
     x = (x - Min) / (Max - Min)
     return x
 
@@ -245,8 +248,14 @@ class Data_Format():
         self.save_id_data(self.redis_names.create_id_hash_name(INDUSTRY_NAME),set(data.values[:,4]))
 
         for line in data.values:
-            self.save_share_info(line)
-            self.init_data(line[0])
+            try:
+                self.save_share_info(line)
+                self.init_data(line[0])
+            except:
+                time.sleep(30)
+                self.save_share_info(line)
+                self.init_data(line[0])
+
 
     def save_share_info(self,info):
         '''
@@ -261,7 +270,10 @@ class Data_Format():
             area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),NONE_NAME)
         else:
             area_id=self.get_id(self.redis_names.create_id_hash_name(AREA_NAME),info[3])
-        industry_id=self.get_id(self.redis_names.create_id_hash_name(INDUSTRY_NAME),info[4])
+        if info[4]==None:
+            industry_id = self.get_id(self.redis_names.create_id_hash_name(INDUSTRY_NAME), NONE_NAME)
+        else:
+            industry_id=self.get_id(self.redis_names.create_id_hash_name(INDUSTRY_NAME),info[4])
         self.save_share_data(ts_code,json.dumps({SOURCE_NAME:info.tolist(),IDS_NAME:[ts_code_id,area_id,industry_id]}))
 
     def save_share_data(self,ts_code,data):
@@ -582,5 +594,4 @@ if __name__ == '__main__':
     #         print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
     #     elif redis_.type(key) == "hash":
     #         print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
-    #         print(redis_.hget(key,"20190912"))
-    #
+
