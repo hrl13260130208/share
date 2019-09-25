@@ -117,40 +117,11 @@ def get_Sequence():
         # yield np.array([item[0]]),np.array([item[4]])
 
 
-def get_Sequence1():
-    f=open(data_format.DATA_FILE,"r",encoding="utf-8")
-    f1=open(r"D:\data\share\data\datas1","w+",encoding="utf-8")
-    i=0
-    for line in f:
-        f1.write(line)
-        i+=1
-        if i>100:
-            break
-        # yield np.array([item[0]]),np.array([item[4]])
 
-def get_model1():
-    #输入
-    lstm_input = tf.keras.Input(shape=(7,6))
-
-    #与输入对接的lstm和embedding
-    lstm=tf.keras.layers.LSTM(units=256, input_shape=(7, 6))(lstm_input)
-
-    out=tf.keras.layers.Dense(units=2,activation="softmax")(lstm)
-
-    print(out.shape)
-    model=tf.keras.Model(inputs=lstm_input,outputs=out)
-
-    model.compile(optimizer=tf.train.RMSPropOptimizer(0.001),
-              loss=tf.keras.losses.categorical_crossentropy,
-              metrics=[tf.keras.metrics.categorical_accuracy]
-                  )
-    return model
-
-
-
-def train():
+def train(ts_code="000001.SZ"):
     model = get_model()
-    model.fit_generator(get_Sequence(),steps_per_epoch=10000000, epochs=1)
+    t,r,t1,a,i=data_format.Data_Format().get_ts_code_datas_by_sort(ts_code)
+    model.fit({'lstm_input': t, 'ts_code_input': t1, 'area_input': a, 'industry_input': i}, {"out": r},batch_size=500,epochs=1000)
     save_model(model)
 
 
@@ -184,47 +155,14 @@ def test1():
     model.save_weights(r"D:\data\share\model\model_0921.cpt")
     model.load_weights(r"D:\data\share\model\model_0921.cpt")
 
-def save_model(model,path=r"D:\data\share\model\model_0921.cpt"):
+def save_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
     model.save_weights(path)
 
-def load_model(model,path=r"D:\data\share\model\model_0921.cpt"):
+def load_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
     model.load_weights(path)
 
 
 
 if __name__ == '__main__':
-    # test1()
     train()
-    # print(get_Sequence())
-    # pass
-    # get_data()
-    # data=np.load(r"C:\File\numpy_data\1.npy")
-    # print(np.array([data[len(data)-index-1] for index in range(data.__len__()) ]).shape)
-    # main()
-    # train_data = data_format.Data_Format().get_current_data("000005.SZ")
-    # print(train_data)
-    # train_data = np.array(train_data)
-    # train_data = train_data.reshape((1, 7, 6))
-    # print(predict(train_data))
-    # get_data()
-    # Predict().predict("000005.SZ",date="20190911")
-    # model=get_model()
-    # t, r, t1, a, i = data_format.Data_Format().get_all_datas_by_sort()
-    # np.save(r"D:\data\share\t",t)
-    # np.save(r"D:\data\share\r",r)
-    # np.save(r"D:\data\share\t1",t1)
-    # np.save(r"D:\data\share\a",a)
-    # np.save(r"D:\data\share\i",i)
-    # model.fit({"lstm_input":t,"ts_code_input":t1,"area_input":a,"industry_input":i},r,batch_size=2000,epochs=1000)
-    # d=SequenceData(batch_size=1000)
-    # model.fit_generator(d,epochs=10)
-    # model.save(r"D:\data\share\model\model_0921")
 
-    # model=tf.keras.Sequential()
-    # model.add(tf.keras.layers.Embedding(input_dim=2,output_dim=10))
-    # model.add(tf.keras.layers.Dense(2))
-    # model.compile(optimizer=tf.train.RMSPropOptimizer(0.001),
-    #               loss=tf.keras.losses.categorical_crossentropy,
-    #               metrics=[tf.keras.metrics.categorical_accuracy]
-    #               )
-    # print(model.fit(np.array([1]),np.array([[0,1]]),batch_size=1,epochs=10))

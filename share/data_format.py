@@ -370,17 +370,48 @@ class Data_Format():
                     self.logger.error("出错！", exc_info=True)
         return np.array(train),np.array(result),np.array(ts_codes),np.array(areas),np.array(industrys)
 
+    def get_ts_code_datas_by_sort(self,ts_code):
+        '''
+        获取指定股票的训练数据
+        :param ts_code:
+        :return:
+        '''
+        train = []
+        ts_codes = []
+        areas = []
+        industrys = []
+        result = []
+
+
+        share_info = self.get_share_data(ts_code)
+        share_info = json.loads(share_info)
+        ids = share_info[IDS_NAME]
+        name = self.redis_names.create_ts_map_name(ts_code)
+        dates = redis_.hkeys(name)
+        dates.sort()
+        for index, date in enumerate(dates[:-1]):
+            if index < 6:
+                continue
+            self.logger.info("获取训练数据，股票代码：" + str(ts_code) + " 日期：" + str(date))
+            try:
+                t, r = self.get_train_and_result_data_by_dates(ts_code, dates[index - 6:index + 1], dates[index + 1])
+
+                self.save_predict(ts_code, date, real_data=r)
+                ts_codes.append(ids[0])
+                areas.append(ids[1])
+                industrys.append(ids[2])
+                train.append(t)
+                result.append([r])
+            except:
+                self.logger.error("出错！", exc_info=True)
+        return np.array(train), np.array(result), np.array(ts_codes), np.array(areas), np.array(industrys)
+
+
     def get_all_datas_by_sort(self):
         """
         通过对redis中存储的日期进行排序，然后输出数据
         :return:
         """
-        # train = []
-        # ts_codes = []
-        # areas = []
-        # industrys = []
-        # result = []
-
         for key in redis_.hkeys(SHARE_LIST_NAME):
             # dayfile = open(DAYS_FILE, "a+", encoding="utf-8")
             # codefile = open(CODES_FILE, "a+", encoding="utf-8")
@@ -615,7 +646,7 @@ def timing():
 
 if __name__ == '__main__':
     # pass
-    # Data_Format().get_all_datas_by_sort()
+    Data_Format().get_all_datas_by_sort()
 
     print(redis_.hlen(Redis_Name_Manager().create_id_hash_name(TS_CODE_NAME)))
 
@@ -649,15 +680,15 @@ if __name__ == '__main__':
     # print(d,type(d))
     # print(json.loads(d)[0],type(json.loads(d)))
     #
-    # for key in redis_.keys("*"):
-    #     # redis_.delete(key)
-    #     # print(key ,redis_.type(key))
-    #     if redis_.type(key) == "string":
-    #         print(key, redis_.get(key))
-    #     elif redis_.type(key) == "set":
-    #         print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
-    #     elif redis_.type(key) == "list":
-    #         print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
-    #     elif redis_.type(key) == "hash":
-    #         print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
+    for key in redis_.keys("*"):
+        # redis_.delete(key)
+        # print(key ,redis_.type(key))
+        if redis_.type(key) == "string":
+            print(key, redis_.get(key))
+        elif redis_.type(key) == "set":
+            print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
+        elif redis_.type(key) == "list":
+            print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
+        elif redis_.type(key) == "hash":
+            print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
 
