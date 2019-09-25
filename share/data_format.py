@@ -579,7 +579,9 @@ def save_train_data():
 
 
 if __name__ == '__main__':
-    save_train_data()
+    redis1 = redis.Redis(host="106.13.47.26", port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+    print(redis1.keys())
+    # save_train_data()
     # Data_Format().get_all_datas_by_sort()
     # print(Data_Format().update_data("000001.SZ"))
     # a=Data_Format().get_all_day_datas()

@@ -112,4 +112,5 @@ if __name__ == '__main__':
     # Predict().predict("000005.SZ",date="20190911")
     model=get_model()
     t, r, t1, a, i = data_format.Data_Format().get_all_datas_by_sort()
-    model.fit({"lstm_input":t,"ts_code_input":t1,"area_input":a,"industry_input":i},r,batch_size=2000,epochs=1000)
+    model.fit({"lstm_input":t,"ts_code_input":t1,"area_input":a,"industry_input":i},r,batch_size=2000,epochs=1)
+    model.save(r"C:\data\rnn\share_lstm_test\1.h5")
