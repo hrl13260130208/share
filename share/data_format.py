@@ -43,6 +43,14 @@ redis存储内容说明：
              ids_data:该数据对应的id （目前存储：ts_code、area、industry）
 
 '''
+#训练数据文件名
+DAYS_FILE=r"D:\data\share\data\days"
+CODES_FILE=r"D:\data\share\data\codes"
+AREAS_FILE=r"D:\data\share\data\areas"
+INDUSTRYS_FILE=r"D:\data\share\data\industrys"
+RESULTS_FILE=r"D:\data\share\data\results"
+DATA_FILE=r"D:\data\share\data\datas"
+
 
 #lineName
 OPEN_LINE_NAME="open"
@@ -367,13 +375,20 @@ class Data_Format():
         通过对redis中存储的日期进行排序，然后输出数据
         :return:
         """
-        train = []
-        ts_codes = []
-        areas = []
-        industrys = []
-        result = []
-        for key in redis_.hkeys(SHARE_LIST_NAME):
+        # train = []
+        # ts_codes = []
+        # areas = []
+        # industrys = []
+        # result = []
 
+        for key in redis_.hkeys(SHARE_LIST_NAME):
+            # dayfile = open(DAYS_FILE, "a+", encoding="utf-8")
+            # codefile = open(CODES_FILE, "a+", encoding="utf-8")
+            # areafile = open(AREAS_FILE, "a+", encoding="utf-8")
+            # infile = open(INDUSTRYS_FILE, "a+", encoding="utf-8")
+            # refile = open(RESULTS_FILE, "a+", encoding="utf-8")
+            datafile=open(DATA_FILE,"a+",encoding="utf-8")
+            time.sleep(10)
             share_info = self.get_share_data(key)
             share_info = json.loads(share_info)
             ids = share_info[IDS_NAME]
@@ -389,15 +404,22 @@ class Data_Format():
                     t, r = self.get_train_and_result_data_by_dates(key,dates[index-6:index+1],dates[index+1])
 
                     self.save_predict(key, date, real_data=r)
-                    ts_codes.append(ids[0])
-                    areas.append(ids[1])
-                    industrys.append(ids[2])
-                    train.append(t)
-                    result.append([r])
+                    # codefile.write(json.dumps(ids[0])+"\n")
+                    # areafile.write(json.dumps(ids[1])+"\n")
+                    # infile.write(json.dumps(ids[2])+"\n")
+                    # dayfile.write(json.dumps(t)+"\n")
+                    # refile.write(json.dumps(r)+"\n")
+
+                    #days,codes,areas,ins,res
+                    datafile.write(json.dumps([t,ids[0],ids[1],ids[2],r])+"\n")
                 except:
                     self.logger.error("出错！", exc_info=True)
-
-        return np.array(train), np.array(result), np.array(ts_codes), np.array(areas), np.array(industrys)
+            # dayfile.close()
+            # refile.close()
+            # infile.close()
+            # areafile.close()
+            # codefile.close()
+            datafile.close()
 
 
     def save_predict(self,ts_code,date,predict_data=None,real_data=None):
@@ -586,20 +608,17 @@ def timing():
     scheduler.start()
 
 
-def save_train_data():
-    t,r,t1,a,i=Data_Format().get_all_datas_by_sort()
-    path=r"C:\data\rnn\share_lstm_test"
-    np.save(path+"/1",t)
-    np.save(path+"/2",r)
-    np.save(path+"/3",t1)
-    np.save(path+"/4",a)
-    np.save(path+"/5",i)
+
+
 
 
 
 if __name__ == '__main__':
-    save_train_data()
+    # pass
     # Data_Format().get_all_datas_by_sort()
+
+    print(redis_.hlen(Redis_Name_Manager().create_id_hash_name(TS_CODE_NAME)))
+
     # print(Data_Format().update_data("000001.SZ"))
     # a=Data_Format().get_all_day_datas()
     # print(a)
