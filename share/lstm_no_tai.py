@@ -3,6 +3,11 @@ import tensorflow as tf
 import json
 import numpy as np
 import os
+from share import predict
+
+
+
+model_path="D:\data\share\model\lstm_no_tai"
 
 
 def get_model():
@@ -51,6 +56,14 @@ def train(data_path=r"D:\data\share\data\split_datas_1",model_path="D:\data\shar
     model.fit(t,  r, batch_size=10000, epochs=1000)
     model.save(model_path)
 
+
+class lnt_predict(predict.Predict):
+    def get_model(self):
+        model = get_model()
+        model.load_weights(model_path)
+        return model
+
 if __name__ == '__main__':
-    train()
+    # train()
     # test()
+    print(lnt_predict().predict("000001.SZ",date="20190919"))

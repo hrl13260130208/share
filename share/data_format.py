@@ -464,7 +464,7 @@ class Data_Format():
         train_data = []
         close = None
         for i in range(7):
-            data = self.get_day_data(ts_code, train_date[6 - i])
+            data = self.get_day_data(ts_code, train_date[i])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
             if i == 6:
@@ -472,6 +472,7 @@ class Data_Format():
 
         next_data = self.get_day_data(ts_code, result_date)
         next_data = json.loads(next_data)
+        print(next_data[SOURCE_NAME][5],close)
         if next_data[SOURCE_NAME][5] > close:
             result_data = [0, 1]
         else:
@@ -558,6 +559,7 @@ class Data_Format():
                 self.logger.info("当前数据中有空值，更新日期！")
                 return self.get_current_data(ts_code,date=train_date[1])
             data = json.loads(data)
+            print(data)
             train_data.append(data[MMSTD_NAME])
         return train_data,train_date[0]
 
@@ -615,9 +617,9 @@ def timing():
 
 if __name__ == '__main__':
     # pass
-    # Data_Format().get_all_datas_by_sort()
+    Data_Format().get_all_datas_by_sort()
 
-    print(redis_.hlen(Redis_Name_Manager().create_id_hash_name(TS_CODE_NAME)))
+    # print(redis_.hlen(Redis_Name_Manager().create_id_hash_name(TS_CODE_NAME)))
 
     # print(Data_Format().update_data("000001.SZ"))
     # a=Data_Format().get_all_day_datas()
