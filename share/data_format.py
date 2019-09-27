@@ -1,4 +1,6 @@
 import tushare as ts
+import tensorflow as tf
+tf.enable_eager_execution()
 import numpy as np
 import redis
 import json
@@ -397,9 +399,9 @@ class Data_Format():
                 t, r = self.get_train_and_result_data_by_dates(ts_code, dates[index - 6:index + 1], dates[index + 1])
 
                 self.save_predict(ts_code, date, real_data=r)
-                ts_codes.append(ids[0])
-                areas.append(ids[1])
-                industrys.append(ids[2])
+                ts_codes.append(int(ids[0]))
+                areas.append(int(ids[1]))
+                industrys.append(int(ids[2]))
                 train.append(t)
                 result.append([r])
             except:
@@ -413,11 +415,7 @@ class Data_Format():
         :return:
         """
         for key in redis_.hkeys(SHARE_LIST_NAME):
-            # dayfile = open(DAYS_FILE, "a+", encoding="utf-8")
-            # codefile = open(CODES_FILE, "a+", encoding="utf-8")
-            # areafile = open(AREAS_FILE, "a+", encoding="utf-8")
-            # infile = open(INDUSTRYS_FILE, "a+", encoding="utf-8")
-            # refile = open(RESULTS_FILE, "a+", encoding="utf-8")
+
             datafile=open(DATA_FILE,"a+",encoding="utf-8")
             time.sleep(10)
             share_info = self.get_share_data(key)
@@ -435,23 +433,40 @@ class Data_Format():
                     t, r = self.get_train_and_result_data_by_dates(key,dates[index-6:index+1],dates[index+1])
 
                     self.save_predict(key, date, real_data=r)
-                    # codefile.write(json.dumps(ids[0])+"\n")
-                    # areafile.write(json.dumps(ids[1])+"\n")
-                    # infile.write(json.dumps(ids[2])+"\n")
-                    # dayfile.write(json.dumps(t)+"\n")
-                    # refile.write(json.dumps(r)+"\n")
 
                     #days,codes,areas,ins,res
                     datafile.write(json.dumps([t,ids[0],ids[1],ids[2],r])+"\n")
                 except:
                     self.logger.error("出错！", exc_info=True)
-            # dayfile.close()
-            # refile.close()
-            # infile.close()
-            # areafile.close()
-            # codefile.close()
             datafile.close()
 
+    # def save_TFRecord(self,TFRecord_file=r"D:\data\share\data\datas"):
+    #     writer = tf.python_io.TFRecordWriter(TFRecord_file)
+    #     for key in redis_.hkeys(SHARE_LIST_NAME):
+    #
+    #         datafile = open(DATA_FILE, "a+", encoding="utf-8")
+    #         time.sleep(10)
+    #         share_info = self.get_share_data(key)
+    #         share_info = json.loads(share_info)
+    #         ids = share_info[IDS_NAME]
+    #         name = self.redis_names.create_ts_map_name(key)
+    #         dates = redis_.hkeys(name)
+    #         dates.sort()
+    #         for index, date in enumerate(dates[:-1]):
+    #             if index < 6:
+    #                 continue
+    #             self.logger.info("获取训练数据，股票代码：" + str(key) + " 日期：" + str(date))
+    #             try:
+    #                 # print(dates[index-6:index+1],"=======",dates[index+1])
+    #                 t, r = self.get_train_and_result_data_by_dates(key, dates[index - 6:index + 1], dates[index + 1])
+    #
+    #                 self.save_predict(key, date, real_data=r)
+    #
+    #                 # days,codes,areas,ins,res
+    #                 datafile.write(json.dumps([t, ids[0], ids[1], ids[2], r]) + "\n")
+    #             except:
+    #                 self.logger.error("出错！", exc_info=True)
+    #         datafile.close()
 
     def save_predict(self,ts_code,date,predict_data=None,real_data=None):
         '''
@@ -646,12 +661,10 @@ def timing():
 
 
 
-
-
-
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
+   
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
     # keys=redis_.hkeys(name)
