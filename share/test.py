@@ -1,6 +1,10 @@
 import tushare as ts
 import numpy as np
 import tensorflow as tf
+from gensim.models import word2vec
+
+
+
 
 
 
@@ -52,8 +56,12 @@ def test3():
     data = pro.daily(ts_code='000001.SZ')
     data.to_excel(r"D:\temp\ts3.xlsx")
 
+def test4():
+    m=word2vec.Word2Vec([1,2,3,4,5,6],size=10)
+    print(m[1])
+
 if __name__ == '__main__':
-    test3()
+    test4()
 
 
 
