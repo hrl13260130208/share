@@ -167,30 +167,66 @@ def load_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
 
 def tfrecord():
     ts_code = "000001.SZ"
+    tfrecord_file = r"D:\data\share\data\tfrecord_file"
     df=data_format.Data_Format()
     model=get_model()
 
     t=df.get_ts_code_datas_by_sort(ts_code)
     print(type(t))
-    dataset = tf.data.Dataset.from_tensor_slices(t)
-
+    dataset=tf.data.Dataset.from_tensor_slices(t)
+    # dataset = tf.data.TFRecordDataset(tfrecord_file)
+    #
     dataset=dataset.map(split_item)
     dataset = dataset.batch(32)
     dataset=dataset.repeat()
 
-    for line in dataset.take(1):
-        print(line)
-
+    for line in dataset.take(10):
+        print(type(line),line)
+        # print(type(line),line.get_shape(),line.dtype)
+        # print("--------------",str(line))
+        # f=tf.parse_single_example(line,features={
+        #                                    'data' : tf.FixedLenFeature([], tf.string)
+        #                                })
+        # print(type(f["data"]),f["data"])
     # Don't forget to specify `steps_per_epoch` when calling `fit` on a dataset.
     model.fit(dataset, epochs=10, steps_per_epoch=30)
 
 
 def split_item(lstm_input,out,ts_code_input,area_input,industry_input):
+    # print(line)
+    # item=json.loads(str(line,encoding="utf-8"))
+    # print(item)
+    print(type(lstm_input),lstm_input)
     return {'lstm_input': lstm_input, 'ts_code_input': ts_code_input ,'area_input':area_input, 'industry_input': industry_input}, {"out": out}
 
 
 
+def save_tfrecord():
+    tfrecord_file=r"D:\data\share\data\tfrecord_file"
+    ts_code = "000001.SZ"
+    df = data_format.Data_Format()
+    t,r,t1,a,ind = df.get_ts_code_datas_by_sort(ts_code)
+
+    with tf.python_io.TFRecordWriter(tfrecord_file) as writer:
+        for i in range(len(t)):
+            print(type(t.tolist()[i]),t.tolist()[i])
+            features = tf.train.Features(
+                feature={
+                    "data": tf.train.Feature(bytes_list=tf.train.BytesList(value=t.tolist()[i]))
+
+                }
+            )
+            example = tf.train.Example(features=features)
+            serialized = example.SerializeToString()
+            writer.write(serialized)
+
+
+
+
+
+
 if __name__ == '__main__':
-    train()
+    # train()
+    # save_tfrecord()
     # test1()
-    # tfrecord()
+    tfrecord()

@@ -409,6 +409,8 @@ class Data_Format():
         return np.array(train), np.array(result), np.array(ts_codes), np.array(areas), np.array(industrys)
 
 
+
+
     def get_all_datas_by_sort(self):
         """
         通过对redis中存储的日期进行排序，然后输出数据
@@ -440,33 +442,37 @@ class Data_Format():
                     self.logger.error("出错！", exc_info=True)
             datafile.close()
 
-    # def save_TFRecord(self,TFRecord_file=r"D:\data\share\data\datas"):
-    #     writer = tf.python_io.TFRecordWriter(TFRecord_file)
-    #     for key in redis_.hkeys(SHARE_LIST_NAME):
-    #
-    #         datafile = open(DATA_FILE, "a+", encoding="utf-8")
-    #         time.sleep(10)
-    #         share_info = self.get_share_data(key)
-    #         share_info = json.loads(share_info)
-    #         ids = share_info[IDS_NAME]
-    #         name = self.redis_names.create_ts_map_name(key)
-    #         dates = redis_.hkeys(name)
-    #         dates.sort()
-    #         for index, date in enumerate(dates[:-1]):
-    #             if index < 6:
-    #                 continue
-    #             self.logger.info("获取训练数据，股票代码：" + str(key) + " 日期：" + str(date))
-    #             try:
-    #                 # print(dates[index-6:index+1],"=======",dates[index+1])
-    #                 t, r = self.get_train_and_result_data_by_dates(key, dates[index - 6:index + 1], dates[index + 1])
-    #
-    #                 self.save_predict(key, date, real_data=r)
-    #
-    #                 # days,codes,areas,ins,res
-    #                 datafile.write(json.dumps([t, ids[0], ids[1], ids[2], r]) + "\n")
-    #             except:
-    #                 self.logger.error("出错！", exc_info=True)
-    #         datafile.close()
+    def save_TFRecord(self,TFRecord_file=r"D:\data\share\data\tfrecord_file"):
+        writer = tf.python_io.TFRecordWriter(TFRecord_file)
+        for key in redis_.hkeys(SHARE_LIST_NAME):
+
+            time.sleep(10)
+            share_info = self.get_share_data(key)
+            share_info = json.loads(share_info)
+            ids = share_info[IDS_NAME]
+            name = self.redis_names.create_ts_map_name(key)
+            dates = redis_.hkeys(name)
+            dates.sort()
+            for index, date in enumerate(dates[:-1]):
+                if index < 6:
+                    continue
+                self.logger.info("获取训练数据，股票代码：" + str(key) + " 日期：" + str(date))
+                try:
+                    # print(dates[index-6:index+1],"=======",dates[index+1])
+                    t, r = self.get_train_and_result_data_by_dates(key, dates[index - 6:index + 1], dates[index + 1])
+
+                    self.save_predict(key, date, real_data=r)
+                    features = tf.train.Features(
+                        feature={
+                            "data": tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(json.dumps([t, ids[0], ids[1], ids[2], r]),encoding="utf-8")]))
+                        }
+                    )
+                    example = tf.train.Example(features=features)
+                    serialized = example.SerializeToString()
+                    writer.write(serialized)
+                except:
+                    self.logger.error("出错！", exc_info=True)
+
 
     def save_predict(self,ts_code,date,predict_data=None,real_data=None):
         '''
@@ -664,7 +670,7 @@ def timing():
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
-   
+
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
     # keys=redis_.hkeys(name)
@@ -673,8 +679,8 @@ if __name__ == '__main__':
     # for key in keys:
     #     print(redis_.hget(name,key))
 
-    # df=Data_Format()
-    # df.get_ts_code_datas_by_sort(ts_code)
+    df=Data_Format()
+    df.save_TFRecord()
     # all_update()
     #
     # for key in redis_.keys("*"):
