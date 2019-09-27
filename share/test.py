@@ -60,8 +60,16 @@ def test4():
     m=word2vec.Word2Vec([1,2,3,4,5,6],size=10)
     print(m[1])
 
+def test5():
+    d={"001":[0.2,0.8],"002":[0.3,0.7],"003":[0.25,0.75]}
+    print(d.items())
+    sort=sorted(d.items(),key=lambda item:item[1][1],reverse=True)
+    print(sort)
+
+
+
 if __name__ == '__main__':
-    test4()
+    test5()
 
 
 

@@ -165,7 +165,32 @@ def load_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
     return model
 
 
+def tfrecord():
+    ts_code = "000001.SZ"
+    df=data_format.Data_Format()
+    model=get_model()
+
+    t=df.get_ts_code_datas_by_sort(ts_code)
+    print(type(t))
+    dataset = tf.data.Dataset.from_tensor_slices(t)
+
+    dataset=dataset.map(split_item)
+    dataset = dataset.batch(32)
+    dataset=dataset.repeat()
+
+    for line in dataset.take(1):
+        print(line)
+
+    # Don't forget to specify `steps_per_epoch` when calling `fit` on a dataset.
+    model.fit(dataset, epochs=10, steps_per_epoch=30)
+
+
+def split_item(lstm_input,out,ts_code_input,area_input,industry_input):
+    return {'lstm_input': lstm_input, 'ts_code_input': ts_code_input ,'area_input':area_input, 'industry_input': industry_input}, {"out": out}
+
+
 
 if __name__ == '__main__':
     train()
     # test1()
+    # tfrecord()
