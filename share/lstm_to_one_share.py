@@ -59,7 +59,7 @@ def get_model():
     model=tf.keras.Model(inputs=[lstm_input,ts_code_input,area_input,industry_input],outputs=out)
     # model=tf.keras.Model(inputs=lstm_input,outputs=out)
 
-    model.compile(optimizer=tf.train.RMSPropOptimizer(0.001),
+    model.compile(optimizer=tf.train.RMSPropOptimizer(0.0005),
               loss=tf.keras.losses.categorical_crossentropy,
               metrics=[tf.keras.metrics.categorical_accuracy]
                   )
@@ -120,8 +120,9 @@ def get_Sequence():
 
 def train(ts_code="000001.SZ"):
     model = get_model()
+    model=load_model(model)
     t,r,t1,a,i=data_format.Data_Format().get_ts_code_datas_by_sort(ts_code)
-    model.fit({'lstm_input': t, 'ts_code_input': t1, 'area_input': a, 'industry_input': i}, {"out": r},batch_size=500,epochs=1000)
+    model.fit({'lstm_input': t, 'ts_code_input': t1, 'area_input': a, 'industry_input': i}, {"out": r},batch_size=100,epochs=5000)
     save_model(model)
 
 
@@ -149,20 +150,22 @@ def test1():
 
     model.fit({'lstm_input': t, 'ts_code_input': t1,
                'area_input': a, 'industry_input': i}, {"out": r}, batch_size=1000, epochs=10)
+    # model.fit_generator(get_Sequence(),steps_per_epoch=10,epochs=1)
     # model.fit( t, r, batch_size=1000, epochs=10)
     # model.save(r"D:\data\share\model\model_0921.cpt")
 
     model.save_weights(r"D:\data\share\model\model_0921.cpt")
-    model.load_weights(r"D:\data\share\model\model_0921.cpt")
+    # model.load_weights(r"D:\data\share\model\model_0921.cpt")
 
 def save_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
     model.save_weights(path)
 
 def load_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
     model.load_weights(path)
+    return model
 
 
 
 if __name__ == '__main__':
     train()
-
+    # test1()

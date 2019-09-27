@@ -494,19 +494,24 @@ class Data_Format():
         '''
         train_data = []
         close = None
+        c=None
         for i in range(7):
-            data = self.get_day_data(ts_code, train_date[6 - i])
+            data = self.get_day_data(ts_code, train_date[i])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
             if i == 6:
                 close = data[SOURCE_NAME][5]
+                c=data[SOURCE_NAME]
 
         next_data = self.get_day_data(ts_code, result_date)
         next_data = json.loads(next_data)
+        print("courent:",c)
+        print("next:",next_data)
         if next_data[SOURCE_NAME][5] > close:
             result_data = [0, 1]
         else:
             result_data = [1, 0]
+        print("result:",result_data)
         return train_data, result_data
 
     def get_used_date(self,date,auto_find=False):
@@ -645,50 +650,29 @@ def timing():
 
 
 if __name__ == '__main__':
-    # pass
-    Data_Format().get_all_datas_by_sort()
 
-    print(redis_.hlen(Redis_Name_Manager().create_id_hash_name(TS_CODE_NAME)))
+    ts_code="000001.SZ"
+    # nm=Redis_Name_Manager()
+    # name=nm.create_ts_map_name(ts_code)
+    # keys=redis_.hkeys(name)
+    # keys.sort()
+    # print(keys)
+    # for key in keys:
+    #     print(redis_.hget(name,key))
 
-    # print(Data_Format().update_data("000001.SZ"))
-    # a=Data_Format().get_all_day_datas()
-    # print(a)
-    # d=datetime.datetime.strptime("20190901","%Y%m%d")
-    # d1=d - datetime.timedelta(days=1)
-    # print(d1.date().strftime("%Y%m%d"))
-
-    # Data_Format().init_data("000005.SZ")
-    # list=Data_Format().get_train_date("20190910")
-    # list2=Data_Format().get_train_date("20190909")
-    # list=Data_Format().get_train_and_result_data("000005.SZ","20190906")
-    # list=Data_Format().get_current_data("000005.SZ")
-    # Data_Format().init_data("000005.SZ")
-    # l1,l2=Data_Format().get_all_day_datas("000005.SZ")
+    # df=Data_Format()
+    # df.get_ts_code_datas_by_sort(ts_code)
+    # all_update()
     #
-    # np.save(r"D:\data\share\train_0913.npy",l1)
-    # np.save(r"D:\data\share\verify_0913.npy",l2)
-    # print(l1.shape)
-    # print(l2.shape)
-    # print(list)
-    # print(Predict().predict("000005.SZ"))
-
-    # d=np.array([1,2,3]).tolist()
-    # print(type(d))
-    # np.save(r"C:\File\numpy_data\1.npy", get_data())
-    # redis_.hset("data","day1",json.dumps([0,1,2,3]))
-    # d=redis_.hget("data","day1")
-    # print(d,type(d))
-    # print(json.loads(d)[0],type(json.loads(d)))
-    #
-    for key in redis_.keys("*"):
-        # redis_.delete(key)
-        # print(key ,redis_.type(key))
-        if redis_.type(key) == "string":
-            print(key, redis_.get(key))
-        elif redis_.type(key) == "set":
-            print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
-        elif redis_.type(key) == "list":
-            print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
-        elif redis_.type(key) == "hash":
-            print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
+    # for key in redis_.keys("*"):
+    #     # redis_.delete(key)
+    #     # print(key ,redis_.type(key))
+    #     if redis_.type(key) == "string":
+    #         print(key, redis_.get(key))
+    #     elif redis_.type(key) == "set":
+    #         print(key, " : ", redis_.scard(key), " : ", redis_.smembers(key))
+    #     elif redis_.type(key) == "list":
+    #         print(key, " : ", redis_.llen(key), " : ")  # , redis_.lrange(key,0,100))
+    #     elif redis_.type(key) == "hash":
+    #         print(key, " : ", redis_.hscan(key))  # , redis_.lrange(key,0,100))
 
