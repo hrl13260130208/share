@@ -78,11 +78,11 @@ def main():
     model.save(model_path)
 
 
-def predict(train_data):
-    model=get_model()
-    model.load_weights(model_path)
-    result=model.predict(train_data)
-    return result
+# def predict(train_data):
+#     model=get_model()
+#     model.load_weights(model_path)
+#     result=model.predict(train_data)
+#     return result
 
 
 class Predict():
@@ -93,16 +93,24 @@ class Predict():
 
 
     def predict(self,ts_code,date=None):
+        share_info = self.Data_Format.get_share_data(ts_code)
+        share_info = json.loads(share_info)
+        ids = share_info[data_format.IDS_NAME]
         if date==None:
-            train_data,date=self.Data_Format.get_current_data(ts_code)
-            print(train_data,date)
-            train_data=np.array(train_data).reshape((1,7,6))
-            real_data=None
+            train_data, date = self.Data_Format.get_current_data(ts_code)
+            # print(train_data,date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
+            real_data = None
         else:
-            train_data,real_data=self.Data_Format.get_train_and_result_data(ts_code,date)
+            train_data, real_data = self.Data_Format.get_train_and_result_data(ts_code, date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
 
-        predict_data = predict(train_data)
+        model=get_model()
+        model=load_model(model)
+        predict_data=model.predict({'lstm_input': train_data, 'ts_code_input': np.array([int(ids[0])]),
+                                    'area_input': np.array([int(ids[1])]), 'industry_input': np.array([int(ids[2])])})
         self.Data_Format.save_predict(ts_code,date,predict_data=predict_data.tolist())
+        print("=======",predict_data.shape,predict_data[0][0][0]>predict_data[0][0][1])
         return predict_data,real_data
 
 
@@ -212,7 +220,8 @@ def save_tfrecord():
             print(type(t.tolist()[i]),t.tolist()[i])
             features = tf.train.Features(
                 feature={
-                    "data": tf.train.Feature(bytes_list=tf.train.BytesList(value=t.tolist()[i]))
+                    "lstm_input": tf.train.Feature(bytes_list=tf.train.BytesList(value=t.tolist()[i])),
+                    "ts_code_input":tf.train.Feature()
 
                 }
             )
@@ -226,7 +235,9 @@ def save_tfrecord():
 
 
 if __name__ == '__main__':
+    # data=Predict().predict("000001.SZ","20190919")
+    # print(data)
     # train()
-    # save_tfrecord()
+    save_tfrecord()
     # test1()
-    tfrecord()
+    # tfrecord()

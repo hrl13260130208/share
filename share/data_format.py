@@ -501,6 +501,8 @@ class Data_Format():
         :return:
         '''
         train_date,result_date=self.get_used_date(date)
+        train_date.sort()
+        print(train_date)
         if result_date==None:
             raise ValueError("无可用的预测数据！")
         return self.get_train_and_result_data_by_dates(ts_code,train_date,result_date)
@@ -680,8 +682,12 @@ if __name__ == '__main__':
     #     print(redis_.hget(name,key))
 
     df=Data_Format()
-    df.save_TFRecord()
+    # df.save_TFRecord()
     # all_update()
+    print(df.get_train_and_result_data(ts_code,"20190925"))
+    # df.get_ts_code_datas_by_sort()
+
+
     #
     # for key in redis_.keys("*"):
     #     # redis_.delete(key)
