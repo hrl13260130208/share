@@ -94,6 +94,8 @@ class Predict():
 
     def predict(self,ts_code,date=None):
         share_info = self.Data_Format.get_share_data(ts_code)
+        if share_info==None:
+            return None,None
         share_info = json.loads(share_info)
         ids = share_info[data_format.IDS_NAME]
         if date==None:
@@ -113,7 +115,16 @@ class Predict():
         print("=======",predict_data.shape,predict_data[0][0][0]>predict_data[0][0][1])
         return predict_data,real_data
 
-
+    def predict_all(self):
+        for ts_code in self.Data_Format.get_share_list()[0]:
+            print("-------------",ts_code)
+            predict_data,_=self.predict(ts_code)
+            print(type(predict_data))
+            if type(predict_data)!=type(None):
+                if predict_data[0][0][0]<predict_data[0][0][1]:
+                    print("涨",ts_code,predict_data)
+                else:
+                    print("跌", ts_code, predict_data)
 
 def get_Sequence():
     f=open(data_format.DATA_FILE,"r",encoding="utf-8")
@@ -281,6 +292,7 @@ if __name__ == '__main__':
     # print(data)
     # train()
     # save_tfrecord()
-    read_tfrecord()
+    # read_tfrecord()
     # test1()
     # tfrecord()
+    Predict().predict_all()

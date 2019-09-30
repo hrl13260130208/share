@@ -3,7 +3,7 @@ import tensorflow as tf
 import json
 import numpy as np
 import os
-from share import predict
+from share import data_format
 
 
 
@@ -57,13 +57,42 @@ def train(data_path=r"D:\data\share\data\split_datas_1",model_path="D:\data\shar
     model.save(model_path)
 
 
-class lnt_predict(predict.Predict):
+class lnt_predict():
+    def __init__(self):
+        self.names=data_format.Redis_Name_Manager()
+        self.Data_Format=data_format.Data_Format()
+        self.model=self.get_model()
+
     def get_model(self):
         model = get_model()
         model.load_weights(model_path)
         return model
 
+    def predict(self, ts_code, date=None):
+        if date == None:
+            train_data, date = self.Data_Format.get_current_data(ts_code)
+            # print(train_data,date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
+            real_data = None
+        else:
+            train_data, real_data = self.Data_Format.get_train_and_result_data(ts_code, date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
+
+        predict_data = self.model.predict(train_data)
+        self.Data_Format.save_predict(ts_code, date, predict_data=predict_data.tolist())
+        return predict_data, real_data
+
+    def predict_all(self):
+        for ts_code in self.Data_Format.get_share_list():
+            predict_data,_=self.predict(ts_code)
+            if predict_data[0]<predict_data[1]:
+                print("涨",ts_code,predict_data)
+            else:
+                print("跌", ts_code, predict_data)
+
+
 if __name__ == '__main__':
     # train()
     # test()
-    print(lnt_predict().predict("000001.SZ",date="20190919"))
+    # print(lnt_predict().predict("000001.SZ",date="20190919"))
+    lnt_predict().predict_all()
