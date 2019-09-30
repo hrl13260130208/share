@@ -217,12 +217,14 @@ def save_tfrecord():
 
     with tf.python_io.TFRecordWriter(tfrecord_file) as writer:
         for i in range(len(t)):
-            print(type(t.tolist()[i]),t.tolist()[i])
+            # print(t1[i])
             features = tf.train.Features(
                 feature={
-                    "lstm_input": tf.train.Feature(bytes_list=tf.train.BytesList(value=t.tolist()[i])),
-                    "ts_code_input":tf.train.Feature()
-
+                    "lstm_input": tf.train.Feature(float_list=tf.train.FloatList(value=t[i].flatten())),
+                    "ts_code_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[t1[i]])),
+                    "area_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[a[i]])),
+                    "industry_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[ind[i]])),
+                    "out":tf.train.Feature(float_list=tf.train.FloatList(value=r[i].flatten()))
                 }
             )
             example = tf.train.Example(features=features)
@@ -230,6 +232,46 @@ def save_tfrecord():
             writer.write(serialized)
 
 
+def read_tfrecord():
+    tfrecord_file = r"D:\data\share\data\tfrecord_file"
+    dataset = tf.data.TFRecordDataset(tfrecord_file)
+    dataset=dataset.map(read_tfrecord_map)
+    for data in dataset.take(10):
+        print(data)
+    dataset = dataset.batch(320)
+    dataset = dataset.repeat()
+    model = get_model()
+    model.fit(dataset, epochs=10, steps_per_epoch=30)
+    # for line in dataset.take(10):
+    #     features = tf.parse_single_example(line,
+    #                                        features={'lstm_input': tf.VarLenFeature(tf.float32)})
+    #
+    #     print(type(line), line)
+    #     data = tf.sparse_tensor_to_dense(features["lstm_input"], default_value=0)
+    #
+    #     lstm_input=features["lstm_input"]
+    #     print(type(lstm_input),type(data),data)
+    #     lstm_input=tf.reshape(data,(7,6))
+    #     print(lstm_input)
+
+
+def read_tfrecord_map(line):
+    features = tf.parse_single_example(line,
+                                       features={'lstm_input': tf.VarLenFeature(tf.float32),
+                                                 "ts_code_input": tf.VarLenFeature(tf.int64),
+                                                 "area_input": tf.VarLenFeature(tf.int64),
+                                                 "industry_input": tf.VarLenFeature(tf.int64),
+                                                 "out":tf.VarLenFeature(tf.float32)
+                                                 })
+
+    data = tf.sparse_tensor_to_dense(features["lstm_input"], default_value=0)
+    ts = tf.sparse_tensor_to_dense(features["ts_code_input"], default_value=0)
+    a = tf.sparse_tensor_to_dense(features["area_input"], default_value=0)
+    ind = tf.sparse_tensor_to_dense(features["industry_input"], default_value=0)
+    out = tf.sparse_tensor_to_dense(features["out"], default_value=0)
+    lstm_input=tf.reshape(data,(7,6))
+    out=tf.reshape(out,(1,2))
+    return {"lstm_input":lstm_input,"ts_code_input":ts,"area_input":a,"industry_input":ind},{"out":out}
 
 
 
@@ -238,6 +280,7 @@ if __name__ == '__main__':
     # data=Predict().predict("000001.SZ","20190919")
     # print(data)
     # train()
-    save_tfrecord()
+    # save_tfrecord()
+    read_tfrecord()
     # test1()
     # tfrecord()
