@@ -17,7 +17,7 @@ def get_model():
     model.add(tf.keras.layers.Reshape((1,256)))
     model.add(tf.keras.layers.Dense(2,activation="softmax"))
 
-    model.compile(optimizer=tf.train.RMSPropOptimizer(0.001),
+    model.compile(optimizer=tf.train.RMSPropOptimizer(0.0002),
               loss=tf.keras.losses.categorical_crossentropy,
               metrics=[tf.keras.metrics.categorical_accuracy]
                   )
@@ -41,8 +41,8 @@ def test():
 
 def train(data_path=r"D:\data\share\data\split_datas_1",model_path="D:\data\share\model\lstm_no_tai"):
     model = get_model()
-    # if os.path.exists(model_path):
-    #     model.load_weights(model_path)
+    if os.path.exists(model_path):
+        model.load_weights(model_path)
     t = []
     r = []
     for line in open(data_path, encoding="utf-8"):
@@ -64,6 +64,6 @@ class lnt_predict(predict.Predict):
         return model
 
 if __name__ == '__main__':
-    # train()
+    train()
     # test()
-    print(lnt_predict().predict("000001.SZ",date="20190919"))
+    # print(lnt_predict().predict("000001.SZ"))
