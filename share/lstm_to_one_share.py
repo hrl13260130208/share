@@ -78,11 +78,11 @@ def main():
     model.save(model_path)
 
 
-def predict(train_data):
-    model=get_model()
-    model.load_weights(model_path)
-    result=model.predict(train_data)
-    return result
+# def predict(train_data):
+#     model=get_model()
+#     model.load_weights(model_path)
+#     result=model.predict(train_data)
+#     return result
 
 
 class Predict():
@@ -93,19 +93,38 @@ class Predict():
 
 
     def predict(self,ts_code,date=None):
+        share_info = self.Data_Format.get_share_data(ts_code)
+        if share_info==None:
+            return None,None
+        share_info = json.loads(share_info)
+        ids = share_info[data_format.IDS_NAME]
         if date==None:
-            train_data,date=self.Data_Format.get_current_data(ts_code)
-            print(train_data,date)
-            train_data=np.array(train_data).reshape((1,7,6))
-            real_data=None
+            train_data, date = self.Data_Format.get_current_data(ts_code)
+            # print(train_data,date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
+            real_data = None
         else:
-            train_data,real_data=self.Data_Format.get_train_and_result_data(ts_code,date)
+            train_data, real_data = self.Data_Format.get_train_and_result_data(ts_code, date)
+            train_data = np.array(train_data).reshape((1, 7, 6))
 
-        predict_data = predict(train_data)
+        model=get_model()
+        model=load_model(model)
+        predict_data=model.predict({'lstm_input': train_data, 'ts_code_input': np.array([int(ids[0])]),
+                                    'area_input': np.array([int(ids[1])]), 'industry_input': np.array([int(ids[2])])})
         self.Data_Format.save_predict(ts_code,date,predict_data=predict_data.tolist())
+        print("=======",predict_data.shape,predict_data[0][0][0]>predict_data[0][0][1])
         return predict_data,real_data
 
-
+    def predict_all(self):
+        for ts_code in self.Data_Format.get_share_list()[0]:
+            print("-------------",ts_code)
+            predict_data,_=self.predict(ts_code)
+            print(type(predict_data))
+            if type(predict_data)!=type(None):
+                if predict_data[0][0][0]<predict_data[0][0][1]:
+                    print("涨",ts_code,predict_data)
+                else:
+                    print("跌", ts_code, predict_data)
 
 def get_Sequence():
     f=open(data_format.DATA_FILE,"r",encoding="utf-8")
@@ -167,30 +186,113 @@ def load_model(model,path=r"D:\data\share\model\model_lstm_to_one_share"):
 
 def tfrecord():
     ts_code = "000001.SZ"
+    tfrecord_file = r"D:\data\share\data\tfrecord_file"
     df=data_format.Data_Format()
     model=get_model()
 
     t=df.get_ts_code_datas_by_sort(ts_code)
     print(type(t))
-    dataset = tf.data.Dataset.from_tensor_slices(t)
-
+    dataset=tf.data.Dataset.from_tensor_slices(t)
+    # dataset = tf.data.TFRecordDataset(tfrecord_file)
+    #
     dataset=dataset.map(split_item)
     dataset = dataset.batch(32)
     dataset=dataset.repeat()
 
-    for line in dataset.take(1):
-        print(line)
-
+    for line in dataset.take(10):
+        print(type(line),line)
+        # print(type(line),line.get_shape(),line.dtype)
+        # print("--------------",str(line))
+        # f=tf.parse_single_example(line,features={
+        #                                    'data' : tf.FixedLenFeature([], tf.string)
+        #                                })
+        # print(type(f["data"]),f["data"])
     # Don't forget to specify `steps_per_epoch` when calling `fit` on a dataset.
     model.fit(dataset, epochs=10, steps_per_epoch=30)
 
 
 def split_item(lstm_input,out,ts_code_input,area_input,industry_input):
+    # print(line)
+    # item=json.loads(str(line,encoding="utf-8"))
+    # print(item)
+    print(type(lstm_input),lstm_input)
     return {'lstm_input': lstm_input, 'ts_code_input': ts_code_input ,'area_input':area_input, 'industry_input': industry_input}, {"out": out}
 
 
 
+def save_tfrecord():
+    tfrecord_file=r"D:\data\share\data\tfrecord_file"
+    ts_code = "000001.SZ"
+    df = data_format.Data_Format()
+    t,r,t1,a,ind = df.get_ts_code_datas_by_sort(ts_code)
+
+    with tf.python_io.TFRecordWriter(tfrecord_file) as writer:
+        for i in range(len(t)):
+            # print(t1[i])
+            features = tf.train.Features(
+                feature={
+                    "lstm_input": tf.train.Feature(float_list=tf.train.FloatList(value=t[i].flatten())),
+                    "ts_code_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[t1[i]])),
+                    "area_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[a[i]])),
+                    "industry_input":tf.train.Feature(int64_list=tf.train.Int64List(value=[ind[i]])),
+                    "out":tf.train.Feature(float_list=tf.train.FloatList(value=r[i].flatten()))
+                }
+            )
+            example = tf.train.Example(features=features)
+            serialized = example.SerializeToString()
+            writer.write(serialized)
+
+
+def read_tfrecord():
+    tfrecord_file = r"D:\data\share\data\tfrecord_file"
+    dataset = tf.data.TFRecordDataset(tfrecord_file)
+    dataset=dataset.map(read_tfrecord_map)
+    for data in dataset.take(10):
+        print(data)
+    dataset = dataset.batch(320)
+    dataset = dataset.repeat()
+    model = get_model()
+    model.fit(dataset, epochs=10, steps_per_epoch=30)
+    # for line in dataset.take(10):
+    #     features = tf.parse_single_example(line,
+    #                                        features={'lstm_input': tf.VarLenFeature(tf.float32)})
+    #
+    #     print(type(line), line)
+    #     data = tf.sparse_tensor_to_dense(features["lstm_input"], default_value=0)
+    #
+    #     lstm_input=features["lstm_input"]
+    #     print(type(lstm_input),type(data),data)
+    #     lstm_input=tf.reshape(data,(7,6))
+    #     print(lstm_input)
+
+
+def read_tfrecord_map(line):
+    features = tf.parse_single_example(line,
+                                       features={'lstm_input': tf.VarLenFeature(tf.float32),
+                                                 "ts_code_input": tf.VarLenFeature(tf.int64),
+                                                 "area_input": tf.VarLenFeature(tf.int64),
+                                                 "industry_input": tf.VarLenFeature(tf.int64),
+                                                 "out":tf.VarLenFeature(tf.float32)
+                                                 })
+
+    data = tf.sparse_tensor_to_dense(features["lstm_input"], default_value=0)
+    ts = tf.sparse_tensor_to_dense(features["ts_code_input"], default_value=0)
+    a = tf.sparse_tensor_to_dense(features["area_input"], default_value=0)
+    ind = tf.sparse_tensor_to_dense(features["industry_input"], default_value=0)
+    out = tf.sparse_tensor_to_dense(features["out"], default_value=0)
+    lstm_input=tf.reshape(data,(7,6))
+    out=tf.reshape(out,(1,2))
+    return {"lstm_input":lstm_input,"ts_code_input":ts,"area_input":a,"industry_input":ind},{"out":out}
+
+
+
+
 if __name__ == '__main__':
-    train()
+    # data=Predict().predict("000001.SZ","20190919")
+    # print(data)
+    # train()
+    # save_tfrecord()
+    # read_tfrecord()
     # test1()
     # tfrecord()
+    Predict().predict_all()
