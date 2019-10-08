@@ -39,11 +39,16 @@ redis存储内容说明：
             hash中key的命名格式：ts_code  例：000001.SZ
             hash中value的值：对应id号                             
     4、股票列表 类型：hash 命名格式：固定名称--share_list
-             hash中key的命名格式：ts_code 例：000002.SZ
-             hash中value的值以json的形式存储 json中存储 
-             source_data：原始数据 
-             ids_data:该数据对应的id （目前存储：ts_code、area、industry）
-
+            hash中key的命名格式：ts_code 例：000002.SZ
+            hash中value的值以json的形式存储 json中存储 
+            source_data：原始数据 
+            ids_data:该数据对应的id （目前存储：ts_code、area、industry）
+             
+    5、股票板块 类型：set 命名格式：固定名称
+            主板： share_type_1
+            创业板：share_type_2
+            中小板：share_type_3
+            科创板：share_type_4
 '''
 #训练数据文件名
 DAYS_FILE=r"D:\data\share\data\days"
@@ -52,6 +57,7 @@ AREAS_FILE=r"D:\data\share\data\areas"
 INDUSTRYS_FILE=r"D:\data\share\data\industrys"
 RESULTS_FILE=r"D:\data\share\data\results"
 DATA_FILE=r"D:\data\share\data\datas"
+WEEK_FILE=r"D:\data\share\data\week_file"
 
 
 #lineName
@@ -84,6 +90,12 @@ IDS_NAME="ids_data"
 
 
 SHARE_LIST_NAME="share_list"
+
+#股票类型
+SHARE_TYPE_1="share_type_1"
+SHARE_TYPE_2="share_type_2"
+SHARE_TYPE_3="share_type_3"
+SHARE_TYPE_4="share_type_4"
 
 DATE_FORMAT="%Y%m%d"
 
@@ -221,9 +233,9 @@ class Data_Format():
         self.logger=logging.getLogger("data_format")
         self.logger.setLevel(logging.INFO)
 
-    def get_share_list(self):
-        data=self.pro.stock_basic()
-        return data.values[:,0],data.values
+    def has_item(self,key,value):
+        return redis_.sismember(key,value)
+
 
     def init_data(self,ts_code):
         '''
@@ -331,6 +343,22 @@ class Data_Format():
         item_name = self.redis_names.create_current_day_name(ts_code)
         return redis_.get(item_name)
 
+    def save_predict(self, ts_code, date, predict_data=None, real_data=None):
+        '''
+        存储预测数据
+        :param ts_code:
+        :param date:
+        :param predict_data:
+        :param real_data:
+        :return:
+        '''
+        save_data = self.get_day_data(ts_code, date)
+        save_data = json.loads(save_data)
+        if predict_data != None:
+            save_data[PREDICT_NAME] = predict_data
+        if real_data != None:
+            save_data[REAL_NAME] = real_data
+        self.save_day_data(ts_code, date, json.dumps(save_data))
 
     def get_mmstad_data(self,ts_code,data):
         data1 = normalization_line_data(ts_code, OPEN_LINE_NAME, data[2])
@@ -372,75 +400,6 @@ class Data_Format():
                     self.logger.error("出错！", exc_info=True)
         return np.array(train),np.array(result),np.array(ts_codes),np.array(areas),np.array(industrys)
 
-    def get_ts_code_datas_by_sort(self,ts_code):
-        '''
-        获取指定股票的训练数据
-        :param ts_code:
-        :return:
-        '''
-        train = []
-        ts_codes = []
-        areas = []
-        industrys = []
-        result = []
-
-
-        share_info = self.get_share_data(ts_code)
-        share_info = json.loads(share_info)
-        ids = share_info[IDS_NAME]
-        name = self.redis_names.create_ts_map_name(ts_code)
-        dates = redis_.hkeys(name)
-        dates.sort()
-        for index, date in enumerate(dates[:-1]):
-            if index < 6:
-                continue
-            self.logger.info("获取训练数据，股票代码：" + str(ts_code) + " 日期：" + str(date))
-            try:
-                t, r = self.get_train_and_result_data_by_dates(ts_code, dates[index - 6:index + 1], dates[index + 1])
-
-                self.save_predict(ts_code, date, real_data=r)
-                ts_codes.append(int(ids[0]))
-                areas.append(int(ids[1]))
-                industrys.append(int(ids[2]))
-                train.append(t)
-                result.append([r])
-            except:
-                self.logger.error("出错！", exc_info=True)
-        return np.array(train), np.array(result), np.array(ts_codes), np.array(areas), np.array(industrys)
-
-
-
-
-    def get_all_datas_by_sort(self):
-        """
-        通过对redis中存储的日期进行排序，然后输出数据
-        :return:
-        """
-        for key in redis_.hkeys(SHARE_LIST_NAME):
-
-            datafile=open(DATA_FILE,"a+",encoding="utf-8")
-            time.sleep(10)
-            share_info = self.get_share_data(key)
-            share_info = json.loads(share_info)
-            ids = share_info[IDS_NAME]
-            name=self.redis_names.create_ts_map_name(key)
-            dates=redis_.hkeys(name)
-            dates.sort()
-            for index,date in enumerate(dates[:-1]):
-                if index<6:
-                    continue
-                self.logger.info("获取训练数据，股票代码：" + str(key) + " 日期：" + str(date))
-                try:
-                    # print(dates[index-6:index+1],"=======",dates[index+1])
-                    t, r = self.get_train_and_result_data_by_dates(key,dates[index-6:index+1],dates[index+1])
-
-                    self.save_predict(key, date, real_data=r)
-
-                    #days,codes,areas,ins,res
-                    datafile.write(json.dumps([t,ids[0],ids[1],ids[2],r])+"\n")
-                except:
-                    self.logger.error("出错！", exc_info=True)
-            datafile.close()
 
     def save_TFRecord(self,TFRecord_file=r"D:\data\share\data\tfrecord_file"):
         writer = tf.python_io.TFRecordWriter(TFRecord_file)
@@ -473,24 +432,52 @@ class Data_Format():
                 except:
                     self.logger.error("出错！", exc_info=True)
 
-
-    def save_predict(self,ts_code,date,predict_data=None,real_data=None):
+    def save_daily_datas(self, ts_code, start_date=None):
         '''
-        存储预测数据
+        存储每日数据
         :param ts_code:
-        :param date:
-        :param predict_data:
-        :param real_data:
         :return:
         '''
-        save_data=self.get_day_data(ts_code,date)
-        save_data=json.loads(save_data)
-        if predict_data!=None:
-            save_data[PREDICT_NAME]=predict_data
-        if real_data!=None:
-            save_data[REAL_NAME]=real_data
-        self.save_day_data(ts_code,date,json.dumps(save_data))
+        data = self.pro.daily(ts_code=ts_code, start_date=start_date)
+        # print(data)
+        np_data = data.values
+        dates = []
+        for line in np_data:
+            if line[1] == start_date:
+                continue
+            self.logger.info("数据日期：" + str(line[1]))
+            self.save_day_data_sm(ts_code, line[1], line)
+            dates.append(line[1])
+        current_date = self.get_current_day(ts_code)
+        for i in dates:
+            if i == current_date:
+                continue
+            t, r = self.get_train_and_result_data(ts_code, i)
+            self.save_predict(ts_code, i, real_data=r)
 
+
+    def update_data(self,ts_code):
+        '''
+        更新指定股票的数据
+        :param ts_code:
+        :return:
+        '''
+        self.logger.info("更新股票："+str(ts_code))
+        old_date=self.get_current_day(ts_code)
+        self.save_daily_datas(ts_code,start_date=old_date)
+
+
+    def get_share_list(self,use_pro=False):
+        '''
+        获取股票列表
+        :param use_pro: 为True时从tushare中获取，否则之间从redis中读取
+        :return:
+        '''
+        if use_pro:
+            data = self.pro.stock_basic()
+            return data.values[:, 0], data.values
+        else:
+            return redis_.hkeys(SHARE_LIST_NAME)
 
     def get_train_and_result_data(self,ts_code,date):
         '''
@@ -572,12 +559,103 @@ class Data_Format():
         d = datetime.datetime.strptime(date, "%Y%m%d")
         d1 = d - datetime.timedelta(days=1)
         last_date=d1.date().strftime("%Y%m%d")
-        data = self.pro.trade_cal(start_date=date, end_date=date)
+        try:
+            data = self.pro.trade_cal(start_date=date, end_date=date)
+        except:
+            time.sleep(10)
+            data = self.pro.trade_cal(start_date=date, end_date=date)
+
         if data.values[0, 2] == 1:
             train_list.append(date)
             return self.get_train_date(last_date,train_list)
         else:
             return self.get_train_date(last_date, train_list)
+
+    def get_ts_code_datas_by_sort(self, ts_code,return_list=False):
+        '''
+        获取指定股票的训练数据
+        :param ts_code:
+        :return:
+        '''
+        train = []
+        ts_codes = []
+        areas = []
+        industrys = []
+        result = []
+        r_list=[]
+
+        share_info = self.get_share_data(ts_code)
+        share_info = json.loads(share_info)
+        ids = share_info[IDS_NAME]
+        name = self.redis_names.create_ts_map_name(ts_code)
+        dates = redis_.hkeys(name)
+        dates.sort()
+        if return_list:
+            for index, date in enumerate(dates[:-1]):
+                if index < 6:
+                    continue
+                self.logger.info("获取训练数据，股票代码：" + str(ts_code) + " 日期：" + str(date))
+                try:
+                    t, r = self.get_train_and_result_data_by_dates(ts_code, dates[index - 6:index + 1], dates[index + 1])
+                    r_list.append([date,np.array([t]),r,ids[0],ids[1],ids[2]])
+                except:
+                    self.logger.error("出错！", exc_info=True)
+            return r_list
+
+        else:
+            for index, date in enumerate(dates[:-1]):
+                if index < 6:
+                    continue
+                self.logger.info("获取训练数据，股票代码：" + str(ts_code) + " 日期：" + str(date))
+                try:
+                    t, r = self.get_train_and_result_data_by_dates(ts_code, dates[index - 6:index + 1], dates[index + 1])
+
+                    self.save_predict(ts_code, date, real_data=r)
+                    ts_codes.append(int(ids[0]))
+                    areas.append(int(ids[1]))
+                    industrys.append(int(ids[2]))
+                    train.append(t)
+                    result.append([r])
+                except:
+                    self.logger.error("出错！", exc_info=True)
+            return np.array(train), np.array(result), np.array(ts_codes), np.array(areas), np.array(industrys)
+
+    def get_all_datas_by_sort(self):
+        """
+        通过对redis中存储的日期进行排序，然后输出数据
+        :return:
+        """
+        for key in redis_.hkeys(SHARE_LIST_NAME):
+
+            datafile = open(DATA_FILE, "a+", encoding="utf-8")
+            time.sleep(10)
+            share_info = self.get_share_data(key)
+            share_info = json.loads(share_info)
+            ids = share_info[IDS_NAME]
+            name = self.redis_names.create_ts_map_name(key)
+            dates = redis_.hkeys(name)
+            dates.sort()
+            for index, date in enumerate(dates[:-1]):
+                if index < 6:
+                    continue
+                self.logger.info("获取训练数据，股票代码：" + str(key) + " 日期：" + str(date))
+                try:
+                    # print(dates[index-6:index+1],"=======",dates[index+1])
+                    t, r = self.get_train_and_result_data_by_dates(key, dates[index - 6:index + 1], dates[index + 1])
+                    self.save_predict(key, date, real_data=r)
+
+                    # days,codes,areas,ins,res
+                    datafile.write(json.dumps([t, ids[0], ids[1], ids[2], r]) + "\n")
+                except:
+                    self.logger.error("出错！", exc_info=True)
+            datafile.close()
+
+
+    def get_date_by_sort(self,ts_code):
+        name=self.redis_names.create_ts_map_name(ts_code)
+        keys=redis_.hkeys(name)
+        keys.sort()
+        return keys
 
     def get_result_date(self,date):
         '''
@@ -596,68 +674,106 @@ class Data_Format():
         else:
             return self.get_result_date(next_date)
 
-    def get_current_data(self,ts_code,date=None):
+    def get_current_data(self, ts_code, date=None, use_sort=False):
         '''
         获取当前最新的数据用以预测
         :return:
         '''
-        if date==None:
-            d=datetime.datetime.now()
-            date=d.date().strftime("%Y%m%d")
-
-        train_date,result_date=self.get_used_date(date,auto_find=True)
+        self.logger.info("股票代码：" + str(ts_code))
+        if date == None:
+            d = datetime.datetime.now()
+            date = d.date().strftime("%Y%m%d")
+        if use_sort:
+            train_date = self.get_date_by_sort(ts_code)
+            train_date=train_date[-7:]
+        else:
+            train_date, result_date = self.get_used_date(date, auto_find=True)
         train_data = []
-
-        self.logger.info("当前数据日期列表为："+str(train_date))
+        train_date.sort()
+        self.logger.info("当前数据日期列表为：" + str(train_date))
         for i in range(7):
-            # print(train_date[6-i])
-            data = self.get_day_data(ts_code, train_date[6 - i])
+
+            data = self.get_day_data(ts_code, train_date[i])
             # print(data)
-            if data==None:
+            if data == None:
                 self.logger.info("当前数据中有空值，更新日期！")
-                return self.get_current_data(ts_code,date=train_date[1])
+                return self.get_current_data(ts_code, date=train_date[5])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
-        return train_data,train_date[0]
+        return train_data, train_date[0]
 
-    def update_data(self,ts_code):
+    def get_week_datas_by_sort(self,week_file=WEEK_FILE):
+        wf = open(week_file, "w+", encoding="utf-8")
+        for ts_code in redis_.hkeys(SHARE_LIST_NAME):
+
+            share_info = self.get_share_data(ts_code)
+            share_info = json.loads(share_info)
+            ids = share_info[IDS_NAME]
+            dates=self.get_date_by_sort(ts_code)
+
+
+            for index,date in  enumerate(dates):
+                if index<30:
+                    continue
+                if index+7>=len(dates):
+                    continue
+
+                train_data,result_data=self.get_week_data(ts_code,dates[index-30:index],dates[index:index+7])
+                wf.write(json.dumps([train_data, ids[0], ids[1], ids[2], result_data]) + "\n")
+        wf.close()
+
+
+    def get_week_data(self,ts_code,train_date,result_date):
         '''
-        更新指定股票的数据
+        结果数据：当前日期的收盘价与之后七日内数据的最低和最高值间的关系
+            最高最低值大于收盘价：             [1,0,0,0]
+            最高值大于收盘价，最低值小于收盘价：[0,1,0,0]
+            最高值小于收盘价，最低值大于收盘价：[0,0,1,0]
+            最高最低值小于收盘价：             [0,0,0,1]
+
         :param ts_code:
+        :param train_date: 包含指定日期与前30天的列表
+        :param result_date: 包含指定日期7天后的列表
         :return:
         '''
-        self.logger.info("更新股票："+str(ts_code))
-        old_date=self.get_current_day(ts_code)
-        self.save_daily_datas(ts_code,start_date=old_date)
+        train_data = []
+        close = None
+        c = None
+        results=[]
 
-    def save_daily_datas(self, ts_code, start_date=None):
-        '''
-        存储每日数据
-        :param ts_code:
-        :return:
-        '''
-        data = self.pro.daily(ts_code=ts_code, start_date=start_date)
-        # print(data)
-        np_data = data.values
-        dates=[]
-        for line in np_data:
-            if line[1]==start_date:
-                continue
-            self.logger.info("数据日期："+str(line[1]))
-            self.save_day_data_sm(ts_code, line[1], line)
-            dates.append(line[1])
-        current_date=self.get_current_day(ts_code)
-        for i in dates:
-            if i==current_date:
-                continue
-            t,r=self.get_train_and_result_data(ts_code,i)
-            self.save_predict(ts_code,i,real_data=r)
+        for i in range(30):
+            data = self.get_day_data(ts_code, train_date[i])
+            data = json.loads(data)
+            train_data.append(data[MMSTD_NAME])
+            if i == 6:
+                close = data[SOURCE_NAME][5]
+                c = data[SOURCE_NAME]
+        for i in range(7):
+            data = self.get_day_data(ts_code, result_date[i])
+            data = json.loads(data)
+
+            for s in data[SOURCE_NAME][2:6]:
+                results.append(s)
+
+        print(close, max(results), min(results))
+        if max(results)>=close and min(results)>=close:
+            return  train_data,[[1,0,0,0]]
+        elif max(results)>=close and min(results)<close:
+            return  train_data,[[0,1,0,0]]
+        elif max(results)<close and min(results)>=close:
+            return  train_data,[[0,0,1,0]]
+        elif max(results)<close and min(results)<close:
+            return  train_data,[[0,0,0,1]]
+
+
 
 
 def all_update():
     df=Data_Format()
+    # redis_.hkeys(SHARE_LIST_NAME)
     for key in redis_.hkeys(SHARE_LIST_NAME):
         try:
+            print("------------------",key)
             df.update_data(key)
         except:
             pass
@@ -666,13 +782,29 @@ def timing():
     scheduler.add_job(func=all_update, trigger="cron", day="*", hour="16")
     scheduler.start()
 
+def test():
+    file_index=1
+    index=0
+    # newfile=open(r"D:\data\share\data\week_split_datas_"+str(file_index),"w+")
+    for line in open(WEEK_FILE, encoding="utf-8"):
+        print(repr(line))
+        # newfile.write(line)
+        # index+=1
+        # if index>1000000:
+        #     newfile.close()
+        #     index=0
+        #     file_index+=1
+        #     newfile = open(r"D:\data\share\data\week_split_datas_" + str(file_index),"w+")
 
 
 
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
+    # all_update()
 
+    test()
+    # Data_Format().get_week_datas_by_sort()
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
     # keys=redis_.hkeys(name)
@@ -681,11 +813,12 @@ if __name__ == '__main__':
     # for key in keys:
     #     print(redis_.hget(name,key))
 
-    df=Data_Format()
+    # df=Data_Format()
     # df.save_TFRecord()
     # all_update()
-    print(df.get_train_and_result_data(ts_code,"20190925"))
+    # print(df.get_train_and_result_data(ts_code,"20190925"))
     # df.get_ts_code_datas_by_sort()
+
 
 
     #

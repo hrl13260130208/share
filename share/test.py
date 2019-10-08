@@ -1,7 +1,6 @@
 import tushare as ts
 import numpy as np
 import tensorflow as tf
-from gensim.models import word2vec
 
 
 
@@ -56,9 +55,7 @@ def test3():
     data = pro.daily(ts_code='000001.SZ')
     data.to_excel(r"D:\temp\ts3.xlsx")
 
-def test4():
-    m=word2vec.Word2Vec([1,2,3,4,5,6],size=10)
-    print(m[1])
+
 
 def test5():
     d={"001":[0.2,0.8],"002":[0.3,0.7],"003":[0.25,0.75]}
