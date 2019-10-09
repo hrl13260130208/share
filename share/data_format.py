@@ -10,8 +10,6 @@ import logging
 import sys
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    stream=sys.stdout)
 
 
 REDIS_IP="localhost"
@@ -722,6 +720,37 @@ class Data_Format():
                 wf.write(json.dumps([train_data, ids[0], ids[1], ids[2], result_data]) + "\n")
         wf.close()
 
+    def get_ts_code_week_data(self,ts_code):
+        t=[]
+        r=[]
+        dates = self.get_date_by_sort(ts_code)
+
+        for index, date in enumerate(dates):
+            if index < 30:
+                continue
+            if index + 7 >= len(dates):
+                continue
+
+            train_data, result_data = self.get_week_data(ts_code, dates[index - 30:index], dates[index:index + 7])
+            t.append(train_data)
+            r.append(result_data)
+
+        return t,r
+
+    def get_current_week_data(self,ts_code):
+        dates = self.get_date_by_sort(ts_code)
+        self.logger.info("获取日期："+str(dates[-1]))
+        t=[]
+        for date in dates[-30:]:
+
+            data = self.get_day_data(ts_code, date)
+            data = json.loads(data)
+            t.append(data[MMSTD_NAME])
+
+        if t.__len__()!=30:
+            return None,None
+        return np.array([t]),dates[-1]
+
 
     def get_week_data(self,ts_code,train_date,result_date):
         '''
@@ -745,7 +774,7 @@ class Data_Format():
             data = self.get_day_data(ts_code, train_date[i])
             data = json.loads(data)
             train_data.append(data[MMSTD_NAME])
-            if i == 6:
+            if i == 29:
                 close = data[SOURCE_NAME][5]
                 c = data[SOURCE_NAME]
         for i in range(7):
@@ -755,7 +784,7 @@ class Data_Format():
             for s in data[SOURCE_NAME][2:6]:
                 results.append(s)
 
-        print(close, max(results), min(results))
+        print(close, max(results), min(results),c,train_data)
         if max(results)>=close and min(results)>=close:
             return  train_data,[[1,0,0,0]]
         elif max(results)>=close and min(results)<close:
@@ -785,16 +814,16 @@ def timing():
 def test():
     file_index=1
     index=0
-    # newfile=open(r"D:\data\share\data\week_split_datas_"+str(file_index),"w+")
+    newfile=open(r"D:\data\share\data\week_split_datas_"+str(file_index),"w+")
     for line in open(WEEK_FILE, encoding="utf-8"):
         print(repr(line))
-        # newfile.write(line)
-        # index+=1
-        # if index>1000000:
-        #     newfile.close()
-        #     index=0
-        #     file_index+=1
-        #     newfile = open(r"D:\data\share\data\week_split_datas_" + str(file_index),"w+")
+        newfile.write(line)
+        index+=1
+        if index>1000000:
+            newfile.close()
+            index=0
+            file_index+=1
+            newfile = open(r"D:\data\share\data\week_split_datas_" + str(file_index),"w+")
 
 
 
@@ -805,6 +834,7 @@ if __name__ == '__main__':
 
     test()
     # Data_Format().get_week_datas_by_sort()
+    # Data_Format().get_current_week_data(ts_code)
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
     # keys=redis_.hkeys(name)
