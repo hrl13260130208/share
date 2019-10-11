@@ -276,9 +276,9 @@ def read_tfrecord_map(line):
 if __name__ == '__main__':
     # data=Predict().predict("000001.SZ","20190919")
     # print(data)
-    # train()
+    train()
     # save_tfrecord()
     # read_tfrecord()
-    test1()
+    # test1()
     # tfrecord()
     # Predict().predict_all()
