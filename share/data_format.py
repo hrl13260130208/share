@@ -794,7 +794,36 @@ class Data_Format():
         elif max(results)<close and min(results)<close:
             return  train_data,[[0,0,0,1]]
 
+    def get_real_data(self,ts_code,num=7):
+        '''
+        获取指定天数的涨跌数据
+        :param num:
+        :return:
+        '''
 
+        dates = self.get_date_by_sort(ts_code)
+        self.logger.info("获取日期：" + str(dates[-1]))
+        t = []
+        last_close=None
+        for date in dates[-(num+1):-1]:
+            data = self.get_day_data(ts_code, date)
+            data = json.loads(data)
+            print(data)
+            if REAL_NAME in data.keys():
+                t.append(data[REAL_NAME])
+            else:
+                if last_close==None:
+                    raise ValueError("日期："+date+"，没有real_data数据。")
+                else:
+                    if data[SOURCE_NAME][5] >= last_close:
+                        result_data = [0, 1]
+                    else:
+                        result_data = [1, 0]
+                    t.append(result_data)
+                    self.save_predict(ts_code,date,real_data=result_data)
+            last_close=data[SOURCE_NAME][5]
+
+        return t
 
 
 def all_update():
@@ -830,10 +859,12 @@ def test():
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
-    all_update()
+    # all_update()
+
 
     # test()
-    # Data_Format().get_week_datas_by_sort()
+    data=Data_Format().get_real_data(ts_code)
+    print(data)
     # Data_Format().get_current_week_data(ts_code)
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
