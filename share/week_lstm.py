@@ -26,8 +26,8 @@ def get_model():
 
 def train(data_path=r"D:\data\share\data\week_split_datas_1",model_path=model_path):
     model = get_model()
-    if os.path.exists(model_path):
-        model.load_weights(model_path)
+    # if os.path.exists(model_path):
+    #     model.load_weights(model_path)
     t = []
     r = []
     for line in open(data_path, encoding="utf-8"):
@@ -38,7 +38,7 @@ def train(data_path=r"D:\data\share\data\week_split_datas_1",model_path=model_pa
     t = np.array(t)
     r = np.array(r)
 
-    model.fit(t,  r, batch_size=10000, epochs=1000)
+    model.fit(t,  r, batch_size=10000, epochs=100)
     model.save(model_path)
 
 
@@ -132,6 +132,6 @@ def get_sort_predict(file_path=r"D:\data\share\predict"):
 
 
 if __name__ == '__main__':
-    # train()
+    train()
     # print(week_lstm_predict().predict("002203.SZ"))
-    get_sort_predict()
+    # get_sort_predict()

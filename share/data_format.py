@@ -830,9 +830,9 @@ def test():
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
-    # all_update()
+    all_update()
 
-    test()
+    # test()
     # Data_Format().get_week_datas_by_sort()
     # Data_Format().get_current_week_data(ts_code)
     # nm=Redis_Name_Manager()

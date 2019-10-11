@@ -51,7 +51,6 @@ def get_model():
     info_out=tf.keras.layers.Dense(units=256)(a)
     lstm_reshape=tf.keras.layers.Reshape((1,256))(lstm)
     b = tf.keras.layers.Concatenate()([lstm_reshape,info_out])
-    print(b.shape)
     out1 = tf.keras.layers.Dense(units=256)(b)
     out=tf.keras.layers.Dense(units=2,activation="softmax",name="out")(out1)
     # out=tf.keras.layers.Dense(units=2,activation="softmax",name="out")(lstm_reshape)
@@ -262,8 +261,6 @@ def read_tfrecord_map(line):
                                                  "out":tf.VarLenFeature(tf.float32)
                                                  })
 
-    print("==============",features["lstm_input"])
-    print("==============",features["ts_code_input"])
     data = tf.sparse_tensor_to_dense(features["lstm_input"], default_value=0)
     ts = tf.sparse_tensor_to_dense(features["ts_code_input"], default_value=0)
     a = tf.sparse_tensor_to_dense(features["area_input"], default_value=0)
@@ -279,9 +276,9 @@ def read_tfrecord_map(line):
 if __name__ == '__main__':
     # data=Predict().predict("000001.SZ","20190919")
     # print(data)
-    # train()
+    train()
     # save_tfrecord()
-    read_tfrecord()
+    # read_tfrecord()
     # test1()
     # tfrecord()
     # Predict().predict_all()
