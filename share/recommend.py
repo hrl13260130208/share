@@ -89,4 +89,6 @@ def rise_days(ts_code,num=7,min_days=6):
 
 
 if __name__ == '__main__':
-    get_main(num=100)
+    # get_main(num=100)
+    ts_code = "000001.SZ"
+    print(rise_days(ts_code))
