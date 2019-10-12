@@ -67,9 +67,33 @@ def recommend_week_lstm(num=100):
 
         if week_lstm_num > num:
             break
+    print("-------------------------------------------------")
     for key in week_lstm_s1.keys():
         r,u,d=rise_days(key)
-        print(r,u,d)
+        print(key,r,u,d,week_lstm_s1[key])
+
+def recommend_day_lstm(num=100):
+    p = lstm_no_tai.lnt_predict()
+    datas = p.predict_all()
+    lnt_s1 = {}
+    lnt_num = 0
+    items = sorted(datas.items(), key=lambda item: item[1][0][0][1], reverse=True)
+
+    for item in items:
+        if p.Data_Format.has_item(data_format.SHARE_TYPE_1, item[0]):
+            print(item)
+            lnt_s1[item[0]] = item[1]
+            lnt_num += 1
+
+        if lnt_num > num:
+            break
+    print("-------------------------------------------------")
+    for key in lnt_s1.keys():
+        r,u,d=rise_days(key,num=10)
+        if r:
+            print(key,r,u,d,lnt_s1[key])
+
+
 
 def rise_days(ts_code,num=7,min_days=6):
     df=data_format.Data_Format()
@@ -89,4 +113,6 @@ def rise_days(ts_code,num=7,min_days=6):
 
 
 if __name__ == '__main__':
-    get_main(num=100)
+    # get_main(num=100)
+    # recommend_week_lstm()
+    recommend_day_lstm()

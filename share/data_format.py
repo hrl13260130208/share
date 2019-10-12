@@ -808,7 +808,7 @@ class Data_Format():
         for date in dates[-(num+1):-1]:
             data = self.get_day_data(ts_code, date)
             data = json.loads(data)
-            print(data)
+            # print(data)
             if REAL_NAME in data.keys():
                 t.append(data[REAL_NAME])
             else:
