@@ -859,12 +859,12 @@ def test():
 if __name__ == '__main__':
 
     ts_code="000001.SZ"
-    # all_update()
+    all_update()
 
 
     # test()
-    data=Data_Format().get_real_data(ts_code)
-    print(data)
+    # data=Data_Format().get_real_data(ts_code)
+    # print(data)
     # Data_Format().get_current_week_data(ts_code)
     # nm=Redis_Name_Manager()
     # name=nm.create_ts_map_name(ts_code)
